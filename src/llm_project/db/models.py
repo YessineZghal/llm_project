@@ -52,6 +52,8 @@ def get_engine():
 
 
 def init_db() -> None:
+    from llm_project.db import nhs_schema  # noqa: F401  (registers its tables on Base.metadata)
+
     Base.metadata.create_all(get_engine())
 
 

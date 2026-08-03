@@ -1,0 +1,33 @@
+id: ingest_diagnostics
+namespace: llm_project
+
+description: |
+  Automated ingestion for ScanFlow AI: discovers the current NHS England DM01
+  (monthly diagnostics) and CDC (Community Diagnostic Centre) files from
+  their official publication pages and loads them into the canonical
+  Postgres schema (src/llm_project/db/nhs_schema.py). Runs the app's Docker
+  image so it has the exact same dependencies as the rest of the project.
+  Idempotent: a source file already recorded in `source_files` (by dataset +
+  content hash) is skipped, so a daily run against an unchanged publication
+  page never duplicates data — it only loads genuinely new months.
+
+tasks:
+  - id: discover_and_load
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Docker
+      pullPolicy: NEVER
+    containerImage: llm-project-app:latest
+    env:
+      # The app_postgres service publishes to the host at 5433 (see
+      # docker-compose.yml); from inside this ephemeral container that's
+      # reached via host.docker.internal, not "localhost" (config.py's
+      # default, correct for running the app itself outside Docker).
+      APP_POSTGRES_HOST: host.docker.internal
+    commands:
+      - python -m llm_project.ingest.nhs_discovered_run
+
+triggers:
+  - id: daily_schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 7 * * *"
