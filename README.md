@@ -13,26 +13,6 @@ what is implemented and verified today, and what is planned. A detailed,
 continuously updated build log is kept in `agent/PROGRESS.md`; the full
 21-step project specification is in `plan.md`.
 
-## Project status
-
-The project follows an eight-milestone build plan. Status as of this
-version:
-
-| Milestone | Description | Status |
-|---|---|---|
-| 1 | Foundation: data discovery, canonical schema | Complete |
-| 2 | Reliable ingestion: deterministic, idempotent pipeline, Kestra orchestration | Complete |
-| 3 | Analytics vertical slice: derived metrics, analytical tools, minimal interface | Complete |
-| 4 | Retrieval-augmented generation: corpus generation, retrieval evaluation | Complete |
-| 5 | Agent: query rewriting, full tool set, agent, agent evaluation | Complete |
-| 6 | Quality and interface: grounded generation, LLM evaluation, full interface | Complete |
-| 7 | Operations: monitoring extension, containerization finalization | Complete |
-| 8 | Submission: documentation, rubric audit | Not started |
-
-Everything described as "complete" below has been verified against real
-data and a real running system - a live Postgres database, a live
-Elasticsearch index, a live Kestra orchestration instance, and a real
-agent making real OpenAI calls, not mocked.
 
 ## Problem statement
 
