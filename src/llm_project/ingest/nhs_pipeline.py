@@ -10,10 +10,13 @@ Runs standalone:
 """
 
 import argparse
+import json
 import sys
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime, timezone
+from pathlib import Path
 
+from llm_project.config import QUALITY_REPORTS_DIR
 from llm_project.db.models import get_session, init_db
 from llm_project.db.nhs_schema import (
     CdcActivityFact,
@@ -241,6 +244,26 @@ def load_cdc_source(url: str, session) -> dict:
     }
 
 
+def _write_quality_report(results: list[dict]) -> Path:
+    """Machine-readable quality report per run (plan.md Step 3 deliverable)."""
+    run_at = datetime.now(timezone.utc)
+    report = {
+        "run_at": run_at.isoformat(),
+        "sources": results,
+        "summary": {
+            "sources_loaded": sum(1 for r in results if r.get("status") == "loaded"),
+            "sources_skipped_already_ingested": sum(
+                1 for r in results if r.get("status") == "skipped_already_ingested"
+            ),
+            "total_raw_rows_processed": sum(r.get("raw_rows", 0) for r in results),
+        },
+    }
+    path = QUALITY_REPORTS_DIR / f"{run_at.strftime('%Y%m%dT%H%M%SZ')}.json"
+    with open(path, "w") as f:
+        json.dump(report, f, indent=2)
+    return path
+
+
 def run(dm01_urls: list[str], cdc_url: str | None = None) -> list[dict]:
     init_db()
     session = get_session()
@@ -252,6 +275,9 @@ def run(dm01_urls: list[str], cdc_url: str | None = None) -> list[dict]:
             results.append(load_cdc_source(cdc_url, session))
     finally:
         session.close()
+
+    report_path = _write_quality_report(results)
+    print(f"quality report -> {report_path}")
     return results
 
 

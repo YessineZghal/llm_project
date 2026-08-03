@@ -15,7 +15,7 @@ tasks:
   - id: discover_and_load
     type: io.kestra.plugin.scripts.shell.Commands
     taskRunner:
-      type: io.kestra.plugin.core.runner.Docker
+      type: io.kestra.plugin.scripts.runner.docker.Docker
       pullPolicy: NEVER
     containerImage: llm-project-app:latest
     env:
@@ -25,7 +25,7 @@ tasks:
       # default, correct for running the app itself outside Docker).
       APP_POSTGRES_HOST: host.docker.internal
     commands:
-      - python -m llm_project.ingest.nhs_discovered_run
+      - /app/.venv/bin/python -m llm_project.ingest.nhs_discovered_run
 
 triggers:
   - id: daily_schedule

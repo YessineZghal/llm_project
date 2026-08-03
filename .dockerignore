@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.ipynb_checkpoints/
+.claude/
+.git/
+.pytest_cache/
+agent/
+data/arxiv_ingest.duckdb
+data/embeddings_cache.npz
+data/quality_reports/

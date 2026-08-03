@@ -18,13 +18,13 @@ tasks:
   - id: run_ingestion
     type: io.kestra.plugin.scripts.shell.Commands
     taskRunner:
-      type: io.kestra.plugin.core.runner.Docker
+      type: io.kestra.plugin.scripts.runner.docker.Docker
       pullPolicy: NEVER
       volumes:
         - "{{ inputs.host_project_dir }}/data:/app/data"
     containerImage: llm-project-app:latest
     commands:
-      - python -m llm_project.ingest.pipeline
+      - /app/.venv/bin/python -m llm_project.ingest.pipeline
 
 triggers:
   - id: daily_schedule

@@ -1,0 +1,47 @@
+{
+  "run_at": "2026-08-03T04:14:41.692632+00:00",
+  "sources": [
+    {
+      "url": "https://www.england.nhs.uk/statistics/wp-content/uploads/sites/2/2026/05/DM01-MARCH-2026-full-extract_32W3L.zip",
+      "status": "loaded",
+      "period_id": "2026-03",
+      "raw_rows": 37264,
+      "providers": 458,
+      "waiting_facts": 1832,
+      "activity_facts": 1832
+    },
+    {
+      "url": "https://www.england.nhs.uk/statistics/wp-content/uploads/sites/2/2026/06/DM01-APRIL-2026-full-extract.zip",
+      "status": "loaded",
+      "period_id": "2026-04",
+      "raw_rows": 37244,
+      "providers": 456,
+      "waiting_facts": 1824,
+      "activity_facts": 1824
+    },
+    {
+      "url": "https://www.england.nhs.uk/statistics/wp-content/uploads/sites/2/2026/07/DM01-MAY-2026-full-extract_8BN1G.zip",
+      "status": "loaded",
+      "period_id": "2026-05",
+      "raw_rows": 36748,
+      "providers": 456,
+      "waiting_facts": 1824,
+      "activity_facts": 1824
+    },
+    {
+      "url": "https://www.england.nhs.uk/statistics/wp-content/uploads/sites/2/2026/07/CDC-Activity-by-Provider-2026-27_-May.csv",
+      "status": "loaded",
+      "periods": [
+        "2026-04",
+        "2026-05"
+      ],
+      "raw_rows": 853,
+      "cdc_facts": 853
+    }
+  ],
+  "summary": {
+    "sources_loaded": 4,
+    "sources_skipped_already_ingested": 0,
+    "total_raw_rows_processed": 112109
+  }
+}

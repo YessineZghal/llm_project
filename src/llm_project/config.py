@@ -9,6 +9,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT_DIR / "data"
 RAW_DIR = DATA_DIR / "raw"
 EVAL_DIR = DATA_DIR / "eval"
+QUALITY_REPORTS_DIR = DATA_DIR / "quality_reports"
 
 RAW_DOCS_PATH = RAW_DIR / "papers.jsonl"
 GROUND_TRUTH_PATH = EVAL_DIR / "ground_truth.csv"
@@ -48,5 +49,5 @@ ARXIV_TOPICS = [
 ]
 ARXIV_MAX_RESULTS_PER_TOPIC = 60
 
-for _dir in (DATA_DIR, RAW_DIR, EVAL_DIR):
+for _dir in (DATA_DIR, RAW_DIR, EVAL_DIR, QUALITY_REPORTS_DIR):
     _dir.mkdir(parents=True, exist_ok=True)
