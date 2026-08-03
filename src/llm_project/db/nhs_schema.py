@@ -216,10 +216,13 @@ class BottleneckScore(Base):
 
     score: Mapped[float] = mapped_column(Float)
     component_long_wait: Mapped[float] = mapped_column(Float)
-    component_waiting_growth: Mapped[float] = mapped_column(Float)
-    component_activity_imbalance: Mapped[float] = mapped_column(Float)
-    component_persistence: Mapped[float] = mapped_column(Float)
-    component_cdc_indicator: Mapped[float] = mapped_column(Float)
+    component_waiting_growth: Mapped[float] = mapped_column(Float, nullable=True)
+    component_activity_imbalance: Mapped[float] = mapped_column(Float, nullable=True)
+    component_persistence: Mapped[float] = mapped_column(Float, nullable=True)
+    # NULL, not 0, when no CDC->provider mapping exists yet (see DATA_SOURCES.md) -
+    # the weight is renormalized across the remaining components rather than
+    # treating a missing signal as "zero capacity indicator".
+    component_cdc_indicator: Mapped[float] = mapped_column(Float, nullable=True)
 
     computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 

@@ -1,7 +1,0 @@
-method,k,num_queries,hit_rate,mrr
-es_hybrid_rerank,5,160,0.9875,0.98125
-es_hybrid,5,160,0.975,0.9283333333333333
-es_knn,5,160,0.95,0.8786458333333333
-minsearch_vector,5,160,0.95,0.8770833333333334
-minsearch_text,5,160,0.925,0.865
-es_text,5,160,0.91875,0.8408333333333333

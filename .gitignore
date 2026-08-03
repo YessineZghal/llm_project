@@ -4,6 +4,7 @@ __pycache__/
 .env
 .ipynb_checkpoints/
 .claude
+agent/
 
 # Derived/regenerable data artifacts (rebuilt by ingest/es_index) — the
 # datasets they're built from (data/raw/*.jsonl, data/eval/*.csv) are tracked.

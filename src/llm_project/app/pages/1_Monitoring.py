@@ -14,15 +14,15 @@ import streamlit as st
 from llm_project.db.client import get_conversations_df, get_feedback_df
 from llm_project.search.retriever import METHODS
 
-st.set_page_config(page_title="Monitoring — LLM/RAG/Agents Research Assistant", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Monitoring - ScanFlow AI", layout="wide")
 
 CATEGORICAL = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
 BLUE = "#2a78d6"
 STATUS_GOOD = "#0ca30c"
 STATUS_CRITICAL = "#d03b3b"
 
-st.title("📊 Monitoring")
-st.caption("Usage and feedback for the LLM/RAG/Agents Research Assistant, logged to Postgres on every chat turn.")
+st.title("Monitoring")
+st.caption("Usage and feedback for ScanFlow AI, logged to Postgres on every interaction.")
 
 try:
     conversations = get_conversations_df()
@@ -47,7 +47,7 @@ avg_response_time = conversations["response_time_seconds"].mean()
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Conversations", n_conversations)
 col2.metric("Feedback votes", n_feedback)
-col3.metric("👍 rate", f"{up_rate:.0%}" if up_rate is not None else "—")
+col3.metric("Positive feedback rate", f"{up_rate:.0%}" if up_rate is not None else "n/a")
 col4.metric("Avg response time", f"{avg_response_time:.1f}s")
 
 st.divider()
@@ -120,17 +120,17 @@ col_c, col_d = st.columns(2)
 with col_c:
     st.subheader("Feedback")
     if n_feedback:
-        fb_counts = feedback["rating"].map({1: "👍 up", -1: "👎 down"}).value_counts().reset_index()
+        fb_counts = feedback["rating"].map({1: "positive", -1: "negative"}).value_counts().reset_index()
         fb_counts.columns = ["rating", "count"]
         chart = (
             alt.Chart(fb_counts)
             .mark_bar(size=50)
             .encode(
-                x=alt.X("rating:N", title=None, sort=["👍 up", "👎 down"]),
+                x=alt.X("rating:N", title=None, sort=["positive", "negative"]),
                 y=alt.Y("count:Q", title="Votes"),
                 color=alt.Color(
                     "rating:N",
-                    scale=alt.Scale(domain=["👍 up", "👎 down"], range=[STATUS_GOOD, STATUS_CRITICAL]),
+                    scale=alt.Scale(domain=["positive", "negative"], range=[STATUS_GOOD, STATUS_CRITICAL]),
                     legend=None,
                 ),
                 tooltip=["rating", "count"],
