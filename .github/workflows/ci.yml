@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync
+      - run: uv run ruff check src tests
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync
+      - run: uv run pytest tests/unit/ -v
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: llm_project
+          POSTGRES_USER: llm_project
+          POSTGRES_PASSWORD: llm_project
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U llm_project"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      APP_POSTGRES_HOST: localhost
+      APP_POSTGRES_PORT: "5433"
+      APP_POSTGRES_DB: llm_project
+      APP_POSTGRES_USER: llm_project
+      APP_POSTGRES_PASSWORD: llm_project
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync
+      # No NHS data is loaded in this job (that would need network access to
+      # NHS England's site from the runner) - integration tests are written
+      # to skip gracefully when the schema exists but has no rows, so this
+      # still validates schema creation and DB connectivity end to end.
+      - run: uv run pytest tests/integration/ -v
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build app
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

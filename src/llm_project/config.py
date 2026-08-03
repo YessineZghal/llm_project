@@ -12,8 +12,9 @@ EVAL_DIR = DATA_DIR / "eval"
 QUALITY_REPORTS_DIR = DATA_DIR / "quality_reports"
 
 RAW_DOCS_PATH = RAW_DIR / "documents.jsonl"  # RAG corpus (provider profiles, definitions, ...) - built in Milestone 4
-GROUND_TRUTH_PATH = EVAL_DIR / "ground_truth.csv"
+GROUND_TRUTH_PATH = EVAL_DIR / "retrieval_ground_truth.jsonl"
 RETRIEVAL_EVAL_RESULTS_PATH = EVAL_DIR / "retrieval_eval_results.csv"
+RETRIEVAL_ERROR_ANALYSIS_PATH = EVAL_DIR / "retrieval_error_analysis.md"
 RAG_EVAL_RESULTS_PATH = EVAL_DIR / "rag_eval_results.csv"
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

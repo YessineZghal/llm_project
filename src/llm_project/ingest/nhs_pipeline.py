@@ -12,7 +12,6 @@ Runs standalone:
 import argparse
 import json
 import sys
-from collections import defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -202,7 +201,10 @@ def load_cdc_source(url: str, session) -> dict:
         row["period_id"] = period_id
         periods_seen[period_id] = period_month
     for period_id, period_month in periods_seen.items():
-        session.merge(ReportingPeriod(period_id=period_id, period_month=period_month, period_label=period_id))
+        # don't clobber a nicer label (e.g. "DM01-MAY-2026") a DM01 load may
+        # already have set for this period - only set one if genuinely new.
+        if session.get(ReportingPeriod, period_id) is None:
+            session.merge(ReportingPeriod(period_id=period_id, period_month=period_month, period_label=period_id))
     session.commit()
 
     source_file = SourceFile(dataset="cdc", url=url, sha256=downloaded.sha256, row_count=len(rows))

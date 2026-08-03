@@ -17,7 +17,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 from tqdm import tqdm
 
-from llm_project.config import GROUND_TRUTH_PATH, OPENAI_API_KEY, OPENAI_CHAT_MODEL, OPENAI_JUDGE_MODEL, RAG_EVAL_RESULTS_PATH
+from llm_project.config import (
+    GROUND_TRUTH_PATH,
+    OPENAI_API_KEY,
+    OPENAI_CHAT_MODEL,
+    OPENAI_JUDGE_MODEL,
+    RAG_EVAL_RESULTS_PATH,
+)
 from llm_project.rag.prompts import PROMPT_VARIANTS, build_context, build_prompt
 from llm_project.rag.query_rewrite import rewrite_query
 from llm_project.search.retriever import retrieve

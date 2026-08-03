@@ -39,7 +39,15 @@ dev = [
     "ipykernel>=7.3.0",
     "jupyter>=1.1.1",
     "pytest>=9.1.1",
+    "ruff>=0.14.0",
 ]
+
+[tool.ruff]
+line-length = 130
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
 
 [build-system]
 requires = ["hatchling"]

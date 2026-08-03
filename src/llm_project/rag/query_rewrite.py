@@ -7,8 +7,10 @@ from llm_project.config import OPENAI_API_KEY, OPENAI_CHAT_MODEL
 
 REWRITE_PROMPT = """
 Rewrite the user's question into a concise, keyword-rich search query optimized for
-retrieving relevant arXiv paper abstracts about LLMs, retrieval-augmented generation,
-and agents. Keep it short (under 15 words). Return ONLY the rewritten query, nothing else.
+retrieving relevant documents from a knowledge base about NHS diagnostic waiting-time
+data: provider profiles, diagnostic test definitions, metric definitions, and
+methodology notes. Keep it short (under 15 words). Return ONLY the rewritten query,
+nothing else.
 
 User question: {question}
 """.strip()

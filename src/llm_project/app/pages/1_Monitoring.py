@@ -11,8 +11,8 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from llm_project.analytics.tools import ALLOWED_TEST_CODES
 from llm_project.db.client import get_conversations_df, get_feedback_df
-from llm_project.search.retriever import METHODS
 
 st.set_page_config(page_title="Monitoring - ScanFlow AI", layout="wide")
 
@@ -69,40 +69,44 @@ st.altair_chart(chart, use_container_width=True)
 col_a, col_b = st.columns(2)
 
 with col_a:
-    st.subheader("RAG vs Agent mode")
+    st.subheader("Interactions by mode")
+    st.caption("agent = Ask ScanFlow (tool-calling); the other two are direct, tool-only lookups.")
     mode_counts = conversations["mode"].value_counts().reset_index()
     mode_counts.columns = ["mode", "count"]
+    mode_domain = sorted(mode_counts["mode"].unique().tolist())
     chart = (
         alt.Chart(mode_counts)
         .mark_bar(size=50)
         .encode(
             x=alt.X("mode:N", title=None, sort="-y"),
-            y=alt.Y("count:Q", title="Conversations"),
-            color=alt.Color("mode:N", scale=alt.Scale(domain=["rag", "agent"], range=CATEGORICAL), legend=None),
+            y=alt.Y("count:Q", title="Interactions"),
+            color=alt.Color("mode:N", scale=alt.Scale(domain=mode_domain, range=CATEGORICAL), legend=None),
             tooltip=["mode", "count"],
         )
     )
     st.altair_chart(chart, use_container_width=True)
 
 with col_b:
-    st.subheader("Retrieval method usage (RAG mode)")
-    rag_rows = conversations[conversations["mode"] == "rag"]
-    if rag_rows["retrieval_method"].notna().any():
-        method_counts = rag_rows["retrieval_method"].value_counts().reset_index()
-        method_counts.columns = ["method", "count"]
+    st.subheader("Questions by diagnostic test")
+    st.caption("Inferred by matching test codes mentioned in the logged question text.")
+    pattern = "|".join(sorted(ALLOWED_TEST_CODES, key=len, reverse=True)).replace("_", "[ _]")
+    mentions = conversations["question"].str.upper().str.extractall(f"({pattern})")
+    if not mentions.empty:
+        test_counts = mentions[0].value_counts().reset_index()
+        test_counts.columns = ["test", "count"]
         chart = (
-            alt.Chart(method_counts)
+            alt.Chart(test_counts)
             .mark_bar(size=35)
             .encode(
-                x=alt.X("method:N", title=None, sort="-y"),
-                y=alt.Y("count:Q", title="Conversations"),
-                color=alt.Color("method:N", scale=alt.Scale(domain=METHODS, range=CATEGORICAL), legend=None),
-                tooltip=["method", "count"],
+                x=alt.X("test:N", title=None, sort="-y"),
+                y=alt.Y("count:Q", title="Questions"),
+                color=alt.Color("test:N", scale=alt.Scale(domain=sorted(ALLOWED_TEST_CODES), range=CATEGORICAL), legend=None),
+                tooltip=["test", "count"],
             )
         )
         st.altair_chart(chart, use_container_width=True)
     else:
-        st.caption("No RAG-mode conversations yet.")
+        st.caption("No diagnostic test mentioned in any logged question yet.")
 
 st.subheader("Response time distribution")
 chart = (
