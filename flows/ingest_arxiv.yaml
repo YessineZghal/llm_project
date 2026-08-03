@@ -1,0 +1,32 @@
+id: ingest_arxiv
+namespace: llm_project
+
+description: |
+  Automated ingestion pipeline for the LLM/RAG/Agents Research Assistant.
+  Fetches paper metadata from the arXiv API and loads it through dlt into
+  data/raw/papers.jsonl (via a local duckdb dataset), ready for the search
+  indices to pick up. Runs the app's Docker image so it has the exact same
+  dependencies as the rest of the project.
+
+inputs:
+  - id: host_project_dir
+    type: STRING
+    defaults: /Users/yessinezghal/Desktop/llm/llm_project
+    description: Absolute host path to the project checkout (bind-mounted so ingested data lands on the host).
+
+tasks:
+  - id: run_ingestion
+    type: io.kestra.plugin.scripts.shell.Commands
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Docker
+      pullPolicy: NEVER
+      volumes:
+        - "{{ inputs.host_project_dir }}/data:/app/data"
+    containerImage: llm-project-app:latest
+    commands:
+      - python -m llm_project.ingest.pipeline
+
+triggers:
+  - id: daily_schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 6 * * *"

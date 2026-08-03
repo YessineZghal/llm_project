@@ -1,0 +1,161 @@
+doc_id,question
+1304.6550v4,What type of black holes does the research focus on regarding their embeddings?
+1304.6550v4,How many new embeddings are obtained for the Reissner-Nordström metric in flat ambient space?
+2605.07422v1,What impact does multi-shot prompting have on agreement in qualitative coding using Claude Haiku?
+2605.07422v1,Which LLM showed the least stability in the evaluation of qualitative coding methods?
+2503.16581v1,What are the key challenges when applying large language models to Quranic studies?
+2503.16581v1,How do large language models compare to smaller models in terms of producing accurate responses in this domain?
+1406.0680v1,What method is proposed to improve image search rankings based on Bag-of-Words?
+1406.0680v1,How does the proposed reranking method enhance performance compared to state-of-the-art methods?
+1707.03869v3,What are some of the challenges in software projects related to cognitive biases?
+1707.03869v3,How many articles were identified that investigate cognitive biases in software engineering?
+2305.14982v2,What specific tasks related to Arabic Natural Language Processing and Speech Processing were benchmarked in this research?
+2305.14982v2,How did the performance of state-of-the-art models compare to large language models in zero-shot and few-shot learning scenarios?
+2504.10529v1,How does the proposed framework improve the performance of retrieval-augmented generation methods?
+2504.10529v1,What are the advantages of decoupling knowledge representations for retrieval and generation in this approach?
+2602.04830v1,How should Software Engineering redefine itself in light of AI automation and energy constraints?
+2602.04830v1,What are the implications of redefining Software Engineering around intent articulation and verification?
+1705.05172v1,What are the benefits of incorporating emotion models in reinforcement learning agents?
+1705.05172v1,How does the survey categorize the relationship between emotions and decision-making in RL agents?
+0708.1723v1,What is the complexity classification of the satisfiability problem for hybrid branching-time logics?
+0708.1723v1,How do the expressive capabilities of these hybrid logics compare to traditional CTL?
+2604.00835v2,What are the three paradigms of tool-use methods identified in the research on large language models?
+2604.00835v2,How does the study aim to address the fragmentation in existing research on agentic tool use?
+2403.13369v2,What challenges are associated with automatic extraction of medical information from clinical documents?
+2403.13369v2,"How does the performance of a lightweight, domain-adapted pretrained model compare to a traditional classification model in low-resource settings?"
+2203.05556v4,What are the two approaches proposed for building embedding modules for numerical features?
+2203.05556v4,How do embeddings for numerical features improve the performance of deep learning models on tabular data?
+2604.26615v1,How does the proposed framework enhance stability and reproducibility in software development using large language models?
+2604.26615v1,What governance mechanisms are incorporated into the AI-native TDD framework to support test-driven development?
+2109.07559v1,How does Hybrid ICP improve accuracy and robustness in object pose estimation compared to traditional ICP methods?
+2109.07559v1,What trade-offs are explored when applying ICP sequentially with a moving camera?
+2511.20908v1,What new methodology was used to classify hybrid pulsators in TESS data?
+2511.20908v1,How many new candidate light curves for hybrid pulsators were identified in the study?
+2509.14257v3,What is the main innovation of the SCoRe framework in training smaller language models?
+2509.14257v3,How does the SCoRe method improve the performance of a 7B-parameter model compared to a 72B-parameter model?
+1402.2232v1,What are the main issues with existing methods for image search reranking?
+1402.2232v1,How does the proposed method improve the ranking of retrieved images?
+2309.02427v3,What are the key components of the proposed Cognitive Architectures for Language Agents?
+2309.02427v3,How does the CoALA framework aim to improve the development of language agents?
+2408.14698v2,What are the challenges faced by embedding-based approaches in multi-modal search?
+2408.14698v2,How does the proposed multi-modal search architecture improve search relevance for complex queries?
+2308.14963v1,How can OpenAI embeddings be utilized for vector search using Lucene?
+2308.14963v1,What are the implications of using HNSW indexes in Lucene for vector search capabilities?
+1811.07010v2,What types of quarks does the W' boson decay to in the search presented?
+1811.07010v2,What method is used to select final-state jets in the analysis?
+1403.7545v1,What technique is used to measure the magnitude and direction of a magnetic field in the magnetometer?
+1403.7545v1,What are the potential applications for the all-optical vector magnetometer?
+2011.12216v3,How do Energy-Based Models help reduce interference with previously learned information in continual learning?
+2011.12216v3,What advantages does the proposed version of Energy-Based Models offer over baseline methods in continual learning tasks?
+0908.0419v1,How does coupling an all-atom model with a Go-like potential affect the energy landscape in protein simulations?
+0908.0419v1,What effect does adding a Go-term have on the native structure in the context of an all-atom force field?
+2409.02228v1,How does forgetting a skill in language models affect their performance on tasks outside the training set?
+2409.02228v1,What factors influence the extent to which language models generalize when they forget a task?
+1812.09225v4,What method is proposed for unsupervised representation learning from dendrograms?
+1812.09225v4,How does the study address the model selection problem in relation to dendrogram-based distances?
+2606.26122v1,What is the purpose of the DocArena data curation pipeline?
+2606.26122v1,How does DocArena improve the training of search agents for multimodal document retrieval?
+2407.01476v4,What is the proposed solution for improving decision-making tasks in language model agents?
+2407.01476v4,How does the new search algorithm perform compared to baseline agents on the VisualWebArena benchmark?
+1705.04212v6,What are the implications of competitive equilibrium for resource allocation among agents with different entitlements?
+1705.04212v6,How does the existence of competitive equilibrium change when dealing with four goods and three agents with additive preferences?
+1606.05112v1,What are the benefits of defining a DSL-specific tagging language compared to a generic tagging language?
+1606.05112v1,How does the proposed approach reduce the effort needed to implement a tagging language for a DSL?
+2603.20683v4,What factors influence the equilibria in search contests?
+2603.20683v4,How do entry effects impact the acceptance threshold in search competitions?
+2507.03405v1,What is the significance of prompt engineering in ensuring the quality of LLM-generated outputs in Requirements Engineering?
+2507.03405v1,How was the effectiveness of prompt engineering guidelines evaluated in the context of Requirements Engineering?
+2603.01691v1,What methodological approaches are necessary for adapting a large language model to less-resourced languages?
+2603.01691v1,How does the performance of the GaMS3-12B model compare to other models in the Slovene language?
+2606.28358v1,What approach is used to understand how large language models decide to attach inline citations?
+2606.28358v1,How does the mechanism responsible for citations in LLMs differ from a localized component?
+physics/0105012v12,How is the set of all physical theories represented in the context of consequence operators?
+physics/0105012v12,What is the role of the unifying injection U in relation to natural-systems?
+1904.11164v2,What method was developed to filter large quantities of software projects efficiently?
+1904.11164v2,How does the performance of PHANTOM compare to existing supervised approaches in identifying engineered projects?
+2212.08926v1,What is the main goal of reranking methods in machine translation?
+2212.08926v1,How does the proposed approach for training rerankers differ from prior methods?
+2404.16891v1,What risks are associated with the integration of third-party APIs in large language model services?
+2404.16891v1,How does the proposed attacking framework contribute to understanding vulnerabilities in LLM platforms?
+2001.02912v1,What is the role of user-system cooperation in conversational search?
+2001.02912v1,How does multimodal communication influence learning in conversational search?
+2508.04848v1,What are the three non-ideal scenarios identified that affect the reasoning abilities of large language models?
+2508.04848v1,How does reinforcement learning fine-tuning influence the performance of language models in ideal versus non-ideal settings?
+1409.4711v3,What is the efficiency measure used for algorithms in the considered synchronous message passing system?
+1409.4711v3,What are the work complexities of the constructive and nonconstructive algorithms developed for the Do-All problem?
+2506.09781v2,What are the effects of negative-pair similarities on the alignment of positive pairs in contrastive learning?
+2506.09781v2,How does batch size influence the quality of learned representations in contrastive learning?
+1508.01327v3,Under what conditions is the spatial search algorithm based on continuous-time quantum walks optimal for Erdös-Renyi random graphs?
+1508.01327v3,How does the optimality of quantum spatial search relate to the performance of quantum information tasks in disordered structures?
+2002.05810v1,What is the main advantage of the E2Efold model in RNA secondary structure prediction?
+2002.05810v1,How does E2Efold compare to previous state-of-the-art methods in terms of performance and efficiency?
+2510.22344v1,What is the main limitation of existing Retrieval-Augmented Generation frameworks when handling complex queries?
+2510.22344v1,How does the Structured Evidence Assessment module improve the retrieval process in FAIR-RAG?
+1909.01120v2,What are the limitations of using pre-trained embeddings for enterprise datasets?
+1909.01120v2,How does the proposed method improve the quality of embeddings for relational data integration?
+1610.00031v1,What methods were used to analyze the performance of classifiers in distinguishing similar languages?
+1610.00031v1,How do the results from the two editions of the DSL shared task compare in terms of progress made?
+2409.13707v1,What are the main issues clients face when implementing generative AI in IT Support?
+2409.13707v1,How does the proposed system utilize retrieval augmented generation for incident resolution recommendations?
+2607.01852v1,How does cluster-based semantic chunking compare to fixed-size and recursive chunking in terms of retrieval and answer quality?
+2607.01852v1,What limitations were observed in the faithfulness of the RAGAs framework when evaluating chunking strategies?
+2511.19427v1,What is the role of Semantic Engineering in enhancing program semantics for AI-Integrated programming?
+2511.19427v1,How does the performance of Semantic Engineering compare to traditional Prompt Engineering in terms of developer effort?
+2403.03788v1,What is the purpose of the PowerPoint Task Completion Robustness benchmark (PPTC-R)?
+2403.03788v1,Which large language model demonstrated the highest performance in the robustness evaluation for task completion?
+2508.15733v1,How can a systems engineering approach help in the development of quantum-secure telecommunications?
+2508.15733v1,What modelling languages are used to create artefacts for quantum key distribution network architectures?
+2203.07303v1,What is the main innovation introduced in the video-language model described in the abstract?
+2203.07303v1,How does the proposed model improve performance on downstream video-text tasks compared to existing models?
+2309.02144v1,How does the Alignment Fine-Tuning (AFT) paradigm improve the reasoning capabilities of large language models?
+2309.02144v1,What are the two main objectives of the constraint alignment loss in the proposed approach?
+2311.04589v3,What approach does the paper propose to improve interactions among multi-modal inputs in large language models?
+2311.04589v3,How does the proposed method enable large language models to handle both understanding and generation tasks for non-textual modalities?
+1812.01662v1,What is the main issue with standard feed-forward neural networks when learning equality relations?
+1812.01662v1,How do differential rectifier units improve the generalization ability of neural networks in relational learning?
+2202.07412v1,What are the advantages of integrating logic-based and embedding-based methods in knowledge graph reasoning?
+2202.07412v1,How has the research focus on knowledge graph reasoning evolved in recent years?
+2606.11961v1,What is the structural failure mode identified when using in-context learning for structured data?
+2606.11961v1,How does parameter-efficient fine-tuning affect the performance of large language models in structured output generation?
+2205.10569v1,What is the main contribution of the Hybrid List Aware Transformer Reranking framework in text retrieval systems?
+2205.10569v1,How does HLATR improve the efficiency of the reranking process in multi-stage text retrieval methods?
+1812.05168v1,What challenges are associated with searching the lessons learned repository in software organizations?
+1812.05168v1,How does the hybrid classifier improve the performance of information retrieval in this context?
+2504.08748v1,How does Multimodal Retrieval-Augmented Generation improve upon traditional text-only retrieval methods?
+2504.08748v1,What are the main components and challenges associated with Multimodal Retrieval-Augmented Generation?
+2601.21761v1,What challenges does the software engineering community face regarding the peer review process?
+2601.21761v1,What strategies are proposed to improve the peer review system in software engineering?
+2502.07985v2,What innovative framework is introduced for optimizing language model safety at inference time?
+2502.07985v2,How does the proposed approach improve performance against adversarial requests and general safety-related tasks?
+2504.16883v1,How do tailored warning messages influence user reasoning in educational settings?
+2504.16883v1,What are the potential drawbacks of using warnings in Retrieval-Augmented Generation systems?
+2602.08015v1,What is the main goal of Evidence-Based Software Engineering (EBSE) in relation to industrial practice?
+2602.08015v1,How do Evidence to Decision (EtD) frameworks from health sciences contribute to making recommendations for practitioners in Software Engineering?
+2205.10250v2,How does the order of concept presentations affect human comprehension in sequential problem-solving tasks?
+2205.10250v2,What impact do machine-learned explanations have on learning and comprehension when presented in a sequential teaching context?
+1905.05461v2,What is the main focus of the proposed approach regarding generative models?
+1905.05461v2,How does the Gromov-Wasserstein distance contribute to the learning of generative models across incomparable spaces?
+dg-ga/9508004v2,What are quasi-$k$-curved metrics and how do they relate to space forms?
+dg-ga/9508004v2,What results are proven regarding the existence and rigidity of isometric embeddings for these metrics?
+2207.03030v1,What method is proposed to improve the training set for retrieval-augmented generation models?
+2207.03030v1,How does the multi-task training approach impact the performance on the KILT benchmark tasks?
+2402.04578v4,How do self-organizing agents improve collaboration in open-ended environments?
+2402.04578v4,What are the key features of the S-Agent system introduced for dynamic workflows?
+1810.03642v4,What is the main advantage of using CAVIA over MAML in meta-learning?
+1810.03642v4,How does CAVIA structure its model parameters for task adaptation?
+2504.02221v1,What novel approach is introduced for learning a backgammon value function?
+2504.02221v1,How does the proposed method compare in performance to current champion human and computer backgammon players?
+2411.02093v1,How do advanced language models affect the effectiveness of prompt engineering techniques in software engineering tasks?
+2411.02093v1,What are the implications of using reasoning models compared to non-reasoning models in code-related tasks?
+2411.16133v2,What issues arise from retrieving irrelevant information in open-domain question answering?
+2411.16133v2,How does the Context Awareness Gate architecture improve the performance of Retrieval Augmented Generation systems?
+2001.08941v1,What method is used to reduce the degrees of freedom in hybrid Lagrangian systems with a cyclic variable?
+2001.08941v1,What stability aspects are explored in relation to periodic orbits in hybrid Routhian systems?
+2504.13684v1,How can large language models be used to enhance cognitive processes in users?
+2504.13684v1,What are the key challenges identified in interacting with multi-modal information during cognitive tasks?
+2402.15010v2,What are the advantages of subword tokenization over character and word-level tokenization in NLP?
+2402.15010v2,What new tokenization strategy is proposed for handling French biomedical terminology?
+2312.03703v2,What challenges are associated with applying in-context learning to skeleton sequence modeling?
+2312.03703v2,How does the proposed Skeleton-in-Context framework improve multi-task performance in skeleton-based tasks?
+2305.09313v1,What problem does the proposed reranking method aim to address in passage retrieval systems?
+2305.09313v1,How does the new reranking method improve upon existing solutions for passage retrieval?
