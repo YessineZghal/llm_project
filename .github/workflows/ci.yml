@@ -57,6 +57,14 @@ jobs:
 
   docker-build:
     runs-on: ubuntu-latest
+    env:
+      # docker-compose.yml interpolates every service's environment block for
+      # any `docker compose` subcommand, including `build` - even for a
+      # service this job never touches (grafana) - so these required
+      # variables (`${VAR:?...}`, no built-in default - see docker-compose.yml)
+      # must be set even though the image is only built here, never run.
+      APP_POSTGRES_PASSWORD: ci-build-placeholder
+      GRAFANA_ADMIN_PASSWORD: ci-build-placeholder
     steps:
       - uses: actions/checkout@v4
       - run: docker compose build app
