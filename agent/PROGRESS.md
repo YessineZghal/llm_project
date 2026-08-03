@@ -8,6 +8,58 @@ no memory of this conversation: read this file, then `agent/PLAN.md`, then
 
 Last updated: 2026-08-03.
 
+## Latest phase: security review + bottleneck access + 4 new chart pages
+
+- **Security review completed** (the `security-review` skill's prescribed
+  process: an independent subagent traced every LLM-controlled tool-call
+  path from `rag/agent.py` through `analytics/tools.py` into
+  SQL/Elasticsearch). Result: no high-confidence vulnerability in the
+  application logic - every dynamic `getattr()` column access is
+  allowlist-gated before use, all DB access is ORM-parameterized, ES
+  queries use safe `multi_match`/`knn` (never `query_string`/scripted
+  queries), no `unsafe_allow_html` anywhere, no eval/exec/pickle/yaml.load.
+  One real, fixed finding: `elasticsearch` (security disabled) and
+  `app_postgres` (example password) were published on all network
+  interfaces (`0.0.0.0`) rather than loopback-only. Fixed in
+  `docker-compose.yml`: both now bind `127.0.0.1` only, and
+  `APP_POSTGRES_PASSWORD` has no built-in default (`${VAR:?...}` syntax -
+  the stack refuses to start without a real value set). Verified this
+  didn't break anything: recreated both containers, confirmed health and
+  that all data (464 providers, 1,870 indexed documents) survived.
+- **The bottleneck score is no longer inaccessible.** This was the single
+  most important gap from the last audit - 16,440 computed rows with zero
+  way to query them. Added `get_bottleneck_ranking` to
+  `analytics/tools.py` (queries `BottleneckScore` directly, supports
+  test/period/weighting_scenario/limit/min_quality), wired into the agent,
+  verified working through both the direct tool call and a real agent
+  conversation ("What is the CT waiting list bottleneck ranking...").
+- **Four new Streamlit pages**, closing out all 6 of plan.md Step 15's
+  pages: `3_Diagnostic_Explorer.py` (trend charts - waiting/activity/%
+  over time, one provider+test), `4_Provider_Comparison.py` (2-5
+  providers, grouped bar charts), `5_Bottleneck_Ranking.py` (ranked score
+  + a melted/grouped component-breakdown chart so the score is explainable,
+  not opaque - correctly excludes the always-null CDC component via
+  `dropna` rather than plotting a fake zero), `6_Capacity_Scenario.py`
+  (projection line chart + narrative summary, prominent simplified-model
+  warning). All follow the same fixed categorical palette and single-hue
+  conventions as the pre-existing Monitoring page; none use dual-axis
+  charts (different units always get separate charts). Every page's core
+  data-loading + Altair chart-spec logic was verified against real data by
+  direct script execution (`chart.to_dict()` succeeding, real row counts) -
+  browser automation was still unavailable this entire session, so this is
+  the strongest verification achievable without a live click-through.
+- README, `docs/rubric-checklist.md` updated to match (rubric checklist
+  was quite stale, predating Milestones 4-5 - now accurate).
+
+**Still open** (see "Known limitations" / "Roadmap" in README, unchanged
+by this phase): no metadata filters on `retrieve()` (plan.md Step 7), no
+dedicated relative-date resolution utility (plan.md Step 10), no
+evidence-package/citation-formatter module or 3-way pipeline comparison
+(plan.md Steps 13/14), monitoring still missing tool-success-rate /
+ingestion-freshness / token-cost charts (plan.md Step 16), no CI run on a
+real GitHub Actions runner yet, no screenshots (browser unavailable all
+session).
+
 ## TL;DR current state
 
 - **Milestones 1-5: done and verified against real data and a real running

@@ -9,46 +9,56 @@ against current implementation status. Updated as milestones land; see
 - 0 points: the problem is not described
 - 2 points: the problem is well described and it is clear what problem the project solves
 
-Status: described in `README.md` ("Problem statement").
+Status: complete. Described in `README.md` ("Problem statement").
 
 ## Retrieval flow
 
 - 0 points: no knowledge base or LLM is used
 - 2 points: both a knowledge base and an LLM are used in the flow
 
-Status: not yet implemented. Planned for Milestone 4 (knowledge base) and
-Milestone 6 (LLM-generated grounded answers). The current interface uses
-only deterministic analytical tools, by design, per the project's
-principle that numerical answers must never come from a model.
+Status: complete. A 1,870-document knowledge base
+(`src/llm_project/rag/generate_corpus.py`, indexed via
+`src/llm_project/search/`) and an OpenAI-backed agent
+(`src/llm_project/rag/agent.py`) are both used - the agent routes between
+knowledge-base retrieval and controlled analytical tools depending on the
+question. Numerical answers still come only from tools, never from the
+model directly, by design.
 
 ## Retrieval evaluation
 
 - 0 points: no evaluation of retrieval is provided
 - 2 points: multiple retrieval approaches are evaluated, and the best one is used
 
-Status: not yet implemented. Planned for Milestone 4. The retrieval layer
-itself (`src/llm_project/search/`, six approaches: minsearch text and
-vector, Elasticsearch text/kNN/hybrid, and hybrid with reranking) already
-exists and was evaluated in an earlier phase of this project against a
-different corpus; Milestone 4 repoints it at the NHS-derived corpus and
-re-evaluates.
+Status: complete. Six approaches evaluated (minsearch text/vector,
+Elasticsearch text/kNN/hybrid, hybrid with reranking) against a 120-question
+stratified ground truth, computing Hit Rate@5/MRR/Recall@5/Recall@10/NDCG@5.
+`es_hybrid_rerank` wins (MRR 0.948) and is the default in
+`src/llm_project/search/retriever.py`. Results:
+`data/eval/retrieval_eval_results.csv`.
 
 ## LLM evaluation
 
 - 0 points: no evaluation of final LLM output is provided
 - 2 points: multiple approaches are evaluated, and the best one is used
 
-Status: not yet implemented. Planned for Milestone 6.
+Status: partial. The agent has been evaluated end to end (117 real cases:
+92.3% intent accuracy, 100% refusal correctness on safety cases) - see
+`data/eval/agent_eval_results.csv`. What's missing for full credit here: a
+formal comparison of multiple distinct answer-generation *pipelines*
+(plan.md Step 14's A/B/C: dense+basic / rewriting+hybrid / full pipeline),
+since currently only one pipeline configuration exists to evaluate.
 
 ## Interface
 
 - 0 points: no way to interact with the application at all
 - 2 points: UI, web application, or an API
 
-Status: complete. Streamlit interface at
-`src/llm_project/app/streamlit_app.py`, functional for the tools
-implemented so far (provider ranking, provider profile), with feedback
-collection.
+Status: complete. Seven Streamlit pages: a chat interface backed by the
+agent (Ask ScanFlow), two tool-direct structured-lookup views (Rank
+providers, Provider profile), and four dedicated chart-based analysis
+pages (Diagnostic Explorer, Provider Comparison, Bottleneck Ranking,
+Capacity Scenario), plus Monitoring and Methodology. Feedback collection
+works across all interactive views.
 
 ## Ingestion pipeline
 
@@ -58,7 +68,7 @@ collection.
 Status: complete. Deterministic, idempotent, self-discovering ingestion
 (`src/llm_project/ingest/`), orchestrated by Kestra
 (`flows/ingest_diagnostics.yaml`), verified running end to end in a live
-Kestra instance.
+Kestra instance (not just as a standalone script).
 
 ## Monitoring
 
@@ -66,41 +76,47 @@ Kestra instance.
 - 1 point: user feedback is collected, or there is a monitoring dashboard
 - 2 points: user feedback is collected and there is a dashboard with at least five charts
 
-Status: partial. Feedback collection is implemented and verified
-end to end. A monitoring dashboard exists
-(`src/llm_project/app/pages/1_Monitoring.py`) with six charts; two of
-those charts (mode split, retrieval method usage) reference concepts from
-an earlier phase of the project and will be updated once the agent and
-retrieval layers are live in Milestones 4 to 6, so the chart set reflects
-what the application actually does end to end.
+Status: complete. Feedback collection verified end to end. The monitoring
+dashboard (`src/llm_project/app/pages/1_Monitoring.py`) has six charts:
+interaction volume over time, interactions by mode, questions by
+diagnostic test, response time distribution, feedback breakdown, and
+most-cited source documents - all reflecting real current interaction
+data (mode/chart definitions were corrected mid-project after an earlier
+version referenced a prior project phase's categories).
 
 ## Containerization
 
 - 0 points: no containerization
 - 2 points: everything is in docker-compose
 
-Status: complete for the services implemented so far. `docker-compose.yml`
+Status: complete for the services implemented. `docker-compose.yml`
 covers the application, its database, Elasticsearch, and Kestra with its
 own database, with health checks and dependency ordering.
+`elasticsearch`/`app_postgres` are bound to `127.0.0.1` only and
+`app_postgres` requires a real password with no built-in default (see
+README "Security").
 
 ## Reproducibility
 
 - 0 points: no instructions on how to run the code, the data is missing, or it is unclear how to access it
 - 2 points: instructions are clear, the dataset is accessible, it is easy to run the code, and it works; versions for all dependencies are specified
 
-Status: complete. Dependencies are pinned via `uv.lock`. Setup
-instructions (Docker Compose, manual, and Kestra-orchestrated) are in
-`README.md` and have been executed and verified during development, not
-only written. Source data is publicly accessible and its exact location
-is documented in `DATA_SOURCES.md`.
+Status: complete. Dependencies pinned via `uv.lock`. Setup instructions
+(Docker Compose, manual, Kestra-orchestrated) in `README.md` have been
+executed and verified during development. Source data is publicly
+accessible; its exact location is in `DATA_SOURCES.md`. CI
+(`.github/workflows/ci.yml`) runs lint, both test suites, a Docker build,
+and a secret scan on every push - written and YAML-validated, but not yet
+run on a real GitHub Actions runner (no such runner available during
+development; worth confirming once pushed).
 
 ## Best practices
 
-- Hybrid search: combining vector and keyword search (already implemented in the retrieval layer, not yet re-evaluated against the NHS corpus - Milestone 4)
-- Document reranking (already implemented in the retrieval layer, not yet re-evaluated against the NHS corpus - Milestone 4)
-- User query rewriting (planned, Milestone 5)
+- Hybrid search: complete - `es_hybrid` combines BM25 and kNN via Reciprocal Rank Fusion, evaluated above.
+- Document reranking: complete - `es_hybrid_rerank` (cross-encoder reranking) is the evaluated winner and default.
+- User query rewriting: complete - `src/llm_project/rag/query_rewrite.py` (search-query rewriting) and `src/llm_project/rag/intent.py` (intent/entity extraction with code-side validation, not trusted from the LLM).
 
 ## Bonus points
 
-- Deployment to the cloud: not attempted, deliberately deferred (plan.md Step 20, explicitly a bonus item that should not put the core local, reproducible project at risk)
-- Other: automated, self-discovering ingestion that scrapes NHS England's live publication pages rather than depending on hardcoded file URLs; every numerical fact in the application is traceable to a specific source file via a foreign key, and every derived table is fully recomputable rather than hand-maintained
+- Deployment to the cloud: not attempted, deliberately deferred (plan.md Step 20, explicitly a bonus item that should not put the core local, reproducible project at risk).
+- Other: automated, self-discovering ingestion that scrapes NHS England's live publication pages rather than depending on hardcoded file URLs; every numerical fact is traceable to a specific source file via a foreign key; the entire RAG corpus is template-generated from validated database facts with zero LLM calls; a bottleneck-score ranking tool with three weighting scenarios and a component-level breakdown chart, so the composite score is explainable rather than opaque; a documented, verified security review of the LLM-controlled tool-call surface (see README "Security").

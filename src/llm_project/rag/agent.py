@@ -103,6 +103,28 @@ def rank_provider_waits(
     return analytics_tools.rank_provider_waits(payload).model_dump()
 
 
+def get_bottleneck_ranking(
+    test_code: str, period_id: str = "", weighting_scenario: str = "balanced", limit: int = 10,
+) -> dict:
+    """Rank providers by the bottleneck score - a project-specific composite
+    indicator combining long-wait percentage, waiting-list growth, activity
+    imbalance, persistence, and CDC capacity where available. Always tell the
+    user this is a project-specific indicator, not an official NHS metric.
+
+    Args:
+        test_code: one of MRI, CT, NON_OBSTETRIC_ULTRASOUND, COLONOSCOPY.
+        period_id: ISO reporting month "YYYY-MM". Leave empty for the latest loaded month.
+        weighting_scenario: one of balanced, waiting_focused, capacity_focused -
+            the same components weighted differently, useful for showing how
+            sensitive a ranking is to the weighting assumption.
+        limit: how many providers to return.
+    """
+    payload = analytics_tools.BottleneckRankingInput(
+        test_code=test_code, period_id=period_id or None, weighting_scenario=weighting_scenario, limit=limit
+    )
+    return analytics_tools.get_bottleneck_ranking(payload).model_dump()
+
+
 def compare_provider_waits(provider_codes: str, test_code: str, period_id: str = "") -> dict:
     """Compare 2 to 5 providers on the same diagnostic test and reporting period.
 
@@ -232,6 +254,7 @@ def build_agent_runner() -> OpenAIChatCompletionsRunner:
         resolve_provider_code,
         get_provider_profile,
         rank_provider_waits,
+        get_bottleneck_ranking,
         compare_provider_waits,
         analyze_waiting_trend,
         compare_activity_and_waiting,

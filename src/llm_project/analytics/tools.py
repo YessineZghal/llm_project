@@ -15,9 +15,10 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from llm_project.db.models import get_session
-from llm_project.db.nhs_schema import CdcActivityFact, Provider, ProviderTestMonthMetric, ReportingPeriod
+from llm_project.db.nhs_schema import BottleneckScore, CdcActivityFact, Provider, ProviderTestMonthMetric, ReportingPeriod
 
 ALLOWED_TEST_CODES = {"MRI", "CT", "NON_OBSTETRIC_ULTRASOUND", "COLONOSCOPY"}
+ALLOWED_WEIGHTING_SCENARIOS = {"balanced", "waiting_focused", "capacity_focused"}
 ALLOWED_RANK_METRICS = {
     "percentage_waiting_6_plus_weeks",
     "total_waiting",
@@ -716,3 +717,110 @@ def retrieve_metric_definition(payload: MetricDefinitionInput) -> MetricDefiniti
         metric_name=payload.metric_name, definition=best["abstract"], document_id=best["id"], warnings=warnings,
         execution_time_ms=(time.perf_counter() - start) * 1000,
     )
+
+
+# --- get_bottleneck_ranking --------------------------------------------------
+
+
+class BottleneckRankingInput(BaseModel):
+    test_code: str
+    period_id: str | None = None
+    weighting_scenario: str = "balanced"
+    limit: int = Field(default=10, ge=1, le=MAX_RANK_LIMIT)
+    min_quality: Literal["any", "complete_only"] = "any"
+
+
+class BottleneckRankingEntry(BaseModel):
+    provider_code: str
+    provider_name: str
+    score: float
+    component_long_wait: float
+    component_waiting_growth: float | None
+    component_activity_imbalance: float | None
+    component_persistence: float | None
+    component_cdc_indicator: float | None
+    quality_flag: str
+
+
+class BottleneckRankingResult(BaseModel):
+    test_code: str
+    period_id: str
+    weighting_scenario: str
+    results: list[BottleneckRankingEntry]
+    warnings: list[str]
+    source: str = (
+        "src/llm_project/analytics/metrics.py -> bottleneck_scores "
+        "(project-specific indicator, not an official NHS metric; see DATA_SOURCES.md)"
+    )
+    execution_time_ms: float
+
+
+def get_bottleneck_ranking(payload: BottleneckRankingInput) -> BottleneckRankingResult:
+    """Args:
+        test_code: one of MRI, CT, NON_OBSTETRIC_ULTRASOUND, COLONOSCOPY.
+        period_id: ISO reporting month "YYYY-MM"; defaults to the latest loaded month.
+        weighting_scenario: one of balanced, waiting_focused, capacity_focused -
+            the same components weighted differently, not different data.
+        limit: how many providers to return (max 25).
+        min_quality: "complete_only" restricts to providers with full prior-month
+            history (quality_flag == "complete" in the underlying metrics), for a
+            stricter comparison; "any" includes providers with partial history.
+    The bottleneck score is a project-specific indicator for relative comparison
+    within the same test and period, not an official NHS measure.
+    """
+    start = time.perf_counter()
+    session = get_session()
+    try:
+        test_code = _validate_test_code(payload.test_code)
+        if payload.weighting_scenario not in ALLOWED_WEIGHTING_SCENARIOS:
+            raise ToolError(
+                f"unsupported weighting_scenario {payload.weighting_scenario!r}; "
+                f"supported: {sorted(ALLOWED_WEIGHTING_SCENARIOS)}"
+            )
+        period_id = payload.period_id or _latest_period_id(session)
+
+        query = (
+            session.query(BottleneckScore, Provider.provider_name, ProviderTestMonthMetric.quality_flag)
+            .join(Provider, Provider.provider_code == BottleneckScore.provider_code)
+            .join(
+                ProviderTestMonthMetric,
+                (ProviderTestMonthMetric.provider_code == BottleneckScore.provider_code)
+                & (ProviderTestMonthMetric.test_code == BottleneckScore.test_code)
+                & (ProviderTestMonthMetric.period_id == BottleneckScore.period_id),
+            )
+            .filter(
+                BottleneckScore.test_code == test_code,
+                BottleneckScore.period_id == period_id,
+                BottleneckScore.weighting_scenario == payload.weighting_scenario,
+            )
+        )
+        if payload.min_quality == "complete_only":
+            query = query.filter(ProviderTestMonthMetric.quality_flag == "complete")
+
+        rows = query.order_by(BottleneckScore.score.desc()).limit(payload.limit).all()
+
+        warnings = ["the bottleneck score is a project-specific indicator, not an official NHS metric"]
+        if not rows:
+            warnings.append("no providers matched this test/period/quality filter")
+
+        results = [
+            BottleneckRankingEntry(
+                provider_code=b.provider_code,
+                provider_name=name,
+                score=b.score,
+                component_long_wait=b.component_long_wait,
+                component_waiting_growth=b.component_waiting_growth,
+                component_activity_imbalance=b.component_activity_imbalance,
+                component_persistence=b.component_persistence,
+                component_cdc_indicator=b.component_cdc_indicator,
+                quality_flag=quality_flag,
+            )
+            for b, name, quality_flag in rows
+        ]
+
+        return BottleneckRankingResult(
+            test_code=test_code, period_id=period_id, weighting_scenario=payload.weighting_scenario,
+            results=results, warnings=warnings, execution_time_ms=(time.perf_counter() - start) * 1000,
+        )
+    finally:
+        session.close()

@@ -309,7 +309,10 @@ All nine analytical tools specified in `plan.md` are implemented, in
 `find_similar_providers`, `simulate_capacity_change`, and
 `retrieve_metric_definition` (the only one that calls the retrieval layer
 rather than SQL directly, since metric definitions are reference text,
-not a computed fact).
+not a computed fact). A tenth tool, `get_bottleneck_ranking`, was added to
+make the bottleneck score (computed by every metrics run, but not covered
+by `rank_provider_waits`'s allowlist, since it lives in its own table)
+actually queryable - by test, period, and weighting scenario.
 
 Every tool shares the same design: inputs are validated Pydantic models,
 diagnostic test codes and rankable metrics are restricted to an
@@ -416,15 +419,25 @@ unsupported-medical-request cases were correctly refused, not 83.3%.
 
 ## Interface
 
-The Streamlit interface, `src/llm_project/app/streamlit_app.py`, has
-three views. **Ask ScanFlow** is a chat interface backed by the agent -
-ask a question in your own words. **Rank providers** and **Provider
-profile** call the analytical tools directly with no language model in
-the loop, for a structured lookup rather than a conversation. All three
-log every interaction and support feedback (helpful / not helpful).
-
-Every result displays its exact reporting period and a citation of its
-source.
+The Streamlit interface covers all six pages specified in plan.md Step 15.
+`src/llm_project/app/streamlit_app.py` has three views: **Ask ScanFlow** is
+a chat interface backed by the agent - ask a question in your own words.
+**Rank providers** and **Provider profile** call the analytical tools
+directly with no language model in the loop, for a structured lookup
+rather than a conversation. Four further pages under
+`src/llm_project/app/pages/` add dedicated, chart-based views:
+**Diagnostic Explorer** (waiting-list, activity, and long-wait trend
+charts for one provider and test across every loaded month),
+**Provider Comparison** (2 to 5 providers compared on the same test and
+period), **Bottleneck Ranking** (ranked score plus a component-level
+breakdown chart, so the score is explainable rather than a single opaque
+number), and **Capacity Scenario** (a projection chart for the
+`simulate_capacity_change` tool, with the simplified-model warning shown
+prominently). All charts use a fixed categorical palette and single-hue
+magnitude encoding, consistent across every page, and avoid dual-axis
+charts throughout (different units get separate charts, never one chart
+with two y-axes). Every page logs interactions and/or displays each
+result's exact reporting period and source citation.
 
 To run the interface locally:
 
@@ -504,6 +517,28 @@ See `.env.example` for the complete, documented list. At minimum, an
 `OPENAI_API_KEY` is required (used for intent classification, the agent,
 and query rewriting), and a running PostgreSQL plus Elasticsearch
 instance.
+
+## Security
+
+Every LLM-controlled tool argument passes through a validated Pydantic
+model before it is used (see "Analytical tools" above); no user- or
+LLM-influenced string is ever interpolated into a SQL or Elasticsearch
+query. The two places that use `getattr()` for dynamic column access
+(`rank_provider_waits`, `analyze_waiting_trend`) check the requested name
+against a fixed allowlist first. Elasticsearch queries use structured
+`multi_match`/`knn` bodies, never `query_string` or scripted queries, so
+user text cannot be interpreted as query syntax. The Streamlit app never
+sets `unsafe_allow_html`, so LLM-generated answer text is always rendered
+through Streamlit's sanitized markdown renderer, not raw HTML.
+
+`docker-compose.yml`'s `elasticsearch` and `app_postgres` services are
+bound to `127.0.0.1` only (not all network interfaces) - Elasticsearch
+runs with security disabled and Postgres ships with an example password
+in `.env.example`, both fine for local development but never intended to
+be reachable from outside the host. `APP_POSTGRES_PASSWORD` has no
+built-in default in `docker-compose.yml`; it must be set in `.env` or the
+stack refuses to start. `.env` is gitignored and confirmed never
+committed to git history.
 
 ## Testing
 
@@ -595,19 +630,24 @@ indicator for relative comparison, not an official or clinically
 validated measure, and is labeled as such throughout. Retrieval ground
 truth is LLM-generated rather than human-labeled. The monitoring
 dashboard's diagnostic-test breakdown is inferred from question text
-rather than a dedicated logged field.
+rather than a dedicated logged field. The retrieval layer's `retrieve()`
+interface does not yet accept metadata filters (by provider, test,
+document type, or period), which plan.md Step 7 specifies; retrieval
+currently relies on the query text alone. Query rewriting extracts dates
+as free text but has no dedicated relative-date resolution utility (for
+example, "last month" is not parsed - only an explicit `YYYY-MM` or
+omitting the period for "latest").
 
 ## Roadmap
 
 The remainder of Milestone 6 (a dedicated evidence-package/citation
-formatter as its own testable module, a formal three-way comparison of
-answer-generation pipelines per plan.md Step 14, and the remaining
-Streamlit pages from Step 15 - Diagnostic Explorer, Provider Comparison,
-Bottleneck Ranking, Capacity Scenario, Methodology - which currently
-exist as agent/tool capabilities but not as dedicated chart-based pages)
-and Milestone 7 (further monitoring chart extensions) are the main
-remaining work, followed by Milestone 8's final documentation and rubric
-audit.
+formatter as its own testable module, and a formal three-way comparison
+of answer-generation pipelines per plan.md Step 14 - the agent has been
+evaluated as a single configuration, not compared against simpler
+alternatives) and Milestone 7 (further monitoring chart extensions: tool
+success rate, ingestion freshness, token cost) are the main remaining
+work, followed by Milestone 8's final documentation and rubric audit. All
+six Streamlit pages from Step 15 are now built.
 
 ## Course rubric mapping
 
@@ -617,7 +657,7 @@ audit.
 | Knowledge base and language model | Both used: 1,870-document generated corpus, OpenAI-backed agent |
 | Retrieval evaluation | 6 methods evaluated, best one (es_hybrid_rerank) used - results above |
 | Language model evaluation | Agent evaluated (117 cases); formal multi-pipeline answer comparison planned for Milestone 6 |
-| Interface | Streamlit, 3 views including a full chat interface |
+| Interface | Streamlit, 7 pages including a full chat interface and 4 chart-based analysis pages |
 | Ingestion pipeline | Automated, orchestrated by Kestra, verified end to end |
 | Monitoring | Feedback collected and a 6-chart dashboard, exceeding the 5-chart threshold |
 | Containerization | Docker Compose covers the application, database, search, and orchestration services |
