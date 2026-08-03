@@ -19,6 +19,7 @@ dependencies = [
     "sqlalchemy>=2.0.51",
     "streamlit>=1.60.0",
     "toyaikit>=0.0.11",
+    "torch>=2.0.0",
     "tqdm>=4.70.0",
 ]
 
@@ -29,6 +30,23 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.14.0",
 ]
+
+# torch (pulled in transitively by sentence-transformers, for embeddings/reranking
+# inference only - this project never uses a GPU) resolves the full CUDA toolkit
+# on Linux by default (cuda-bindings, cudnn, nccl, triton, ...), ballooning the
+# Docker image to ~9GB and exhausting CI runners' disk space. PyTorch's own
+# CPU-only wheel index publishes current versions for every platform this
+# project runs on (Linux and macOS arm64), so this applies uniformly - not
+# just a Linux-only override.
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.ruff]
 line-length = 130
