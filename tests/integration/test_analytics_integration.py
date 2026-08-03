@@ -8,9 +8,11 @@ unit-test suite (tests/unit/), which must work without any live database.
 import pytest
 
 from llm_project.analytics.tools import (
+    NationalSummaryInput,
     ProviderProfileInput,
     RankProvidersInput,
     ToolError,
+    get_national_summary,
     get_provider_profile,
     rank_provider_waits,
 )
@@ -76,6 +78,48 @@ class TestRankProviderWaits:
         _skip_if_no_data()
         with pytest.raises(ToolError, match="unsupported metric"):
             rank_provider_waits(RankProvidersInput(test_code="MRI", metric="not_a_real_metric"))
+
+
+class TestGetNationalSummary:
+    def test_totals_reconcile_with_a_direct_sum(self):
+        _skip_if_no_data()
+        session = get_session()
+        try:
+            rows = session.query(ProviderTestMonthMetric).filter_by(test_code="MRI", period_id="2026-05").all()
+        finally:
+            session.close()
+        summary = get_national_summary(NationalSummaryInput(test_code="MRI", period_id="2026-05"))
+        assert summary.provider_count == len(rows)
+        assert summary.total_waiting == sum(r.total_waiting for r in rows)
+        assert summary.total_activity == sum(r.total_activity for r in rows)
+
+    def test_weighted_percentage_differs_from_unweighted_average(self):
+        # the whole point of reporting both is that they are not the same number
+        # for a real, provider-size-skewed dataset - this locks that in.
+        _skip_if_no_data()
+        summary = get_national_summary(NationalSummaryInput(test_code="MRI", period_id="2026-05"))
+        assert summary.national_percentage_waiting_6_plus_weeks != summary.average_percentage_waiting_6_plus_weeks
+
+    def test_national_percentage_is_correctly_weighted(self):
+        _skip_if_no_data()
+        session = get_session()
+        try:
+            rows = session.query(ProviderTestMonthMetric).filter_by(test_code="MRI", period_id="2026-05").all()
+        finally:
+            session.close()
+        expected = sum(r.waiting_6_plus_weeks for r in rows) / sum(r.total_waiting for r in rows) * 100
+        summary = get_national_summary(NationalSummaryInput(test_code="MRI", period_id="2026-05"))
+        assert summary.national_percentage_waiting_6_plus_weeks == pytest.approx(expected, abs=0.01)
+
+    def test_defaults_to_latest_period(self):
+        _skip_if_no_data()
+        summary = get_national_summary(NationalSummaryInput(test_code="MRI"))
+        assert summary.period_id == "2026-05"
+
+    def test_unsupported_test_raises(self):
+        _skip_if_no_data()
+        with pytest.raises(ToolError, match="unsupported diagnostic test"):
+            get_national_summary(NationalSummaryInput(test_code="XRAY"))
 
 
 class TestDerivedMetricsInvariants:

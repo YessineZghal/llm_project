@@ -1,0 +1,211 @@
+{
+  "uid": "scanflow-monitoring",
+  "title": "ScanFlow AI - Monitoring",
+  "description": "Real interaction/feedback/ingestion data from the same Postgres tables src/llm_project/db/client.py reads for the Streamlit monitoring page (conversations, feedback, source_files). Complements that page rather than replacing it.",
+  "tags": ["scanflow-ai"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": { "from": "now-1y", "to": "now" },
+  "refresh": "",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Conversations",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "scanflow-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT count(*) AS value FROM conversations",
+          "datasource": { "type": "postgres", "uid": "scanflow-postgres" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Positive feedback rate",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "scanflow-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT CASE WHEN count(*) = 0 THEN NULL ELSE round(100.0 * sum(CASE WHEN rating = 1 THEN 1 ELSE 0 END) / count(*), 1) END AS value FROM feedback",
+          "datasource": { "type": "postgres", "uid": "scanflow-postgres" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Avg response time",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "scanflow-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT round(avg(response_time_seconds)::numeric, 2) AS value FROM conversations",
+          "datasource": { "type": "postgres", "uid": "scanflow-postgres" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Total LLM cost",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "scanflow-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT round(coalesce(sum(estimated_cost), 0)::numeric, 4) AS value FROM conversations",
+          "datasource": { "type": "postgres", "uid": "scanflow-postgres" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Conversations per day",
+      "gridPos": { "x": 0, "y": 4, "w": 16, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "scanflow-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('day', created_at) AS time, count(*) AS conversations FROM conversations GROUP BY 1 ORDER BY 1",
+          "datasource": { "type": "postgres", "uid": "scanflow-postgres" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "pointSize": 6, "showPoints": "always" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "id": 6,
+      "type": "piechart",
+      "title": "Interactions by mode",
+      "gridPos": { "x": 16, "y": 4, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "scanflow-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT mode, count(*) AS count FROM conversations GROUP BY mode ORDER BY count DESC",
+          "datasource": { "type": "postgres", "uid": "scanflow-postgres" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "right" }, "pieType": "pie", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "Questions by intent",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "scanflow-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT coalesce(intent, 'unlabeled') AS intent, count(*) AS count FROM conversations GROUP BY 1 ORDER BY count DESC",
+          "datasource": { "type": "postgres", "uid": "scanflow-postgres" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 8,
+      "type": "piechart",
+      "title": "Tool success rate",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "scanflow-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT CASE WHEN tool_success THEN 'success' ELSE 'error' END AS outcome, count(*) AS count FROM conversations WHERE tool_success IS NOT NULL GROUP BY 1",
+          "datasource": { "type": "postgres", "uid": "scanflow-postgres" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [
+        { "matcher": { "id": "byName", "options": "success" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+        { "matcher": { "id": "byName", "options": "error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+      ] },
+      "options": { "legend": { "displayMode": "list", "placement": "right" }, "pieType": "pie", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 9,
+      "type": "barchart",
+      "title": "Estimated LLM cost per day",
+      "gridPos": { "x": 0, "y": 20, "w": 14, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "scanflow-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day, round(sum(estimated_cost)::numeric, 4) AS cost_usd FROM conversations WHERE estimated_cost IS NOT NULL GROUP BY 1 ORDER BY 1",
+          "datasource": { "type": "postgres", "uid": "scanflow-postgres" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "xField": "day" }
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Data ingestion freshness",
+      "gridPos": { "x": 14, "y": 20, "w": 10, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "scanflow-postgres" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT dataset, reporting_period_id, row_count, downloaded_at FROM source_files ORDER BY downloaded_at DESC",
+          "datasource": { "type": "postgres", "uid": "scanflow-postgres" }
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": {}
+    }
+  ]
+}

@@ -10,11 +10,13 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from llm_project.analytics.tools import ALLOWED_TEST_CODES, NationalSummaryInput, ToolError, get_national_summary
 from llm_project.db.models import get_session
 from llm_project.db.nhs_schema import DiagnosticTest, Provider, ProviderTestMonthMetric, ReportingPeriod
 
 st.set_page_config(page_title="Diagnostic Explorer - ScanFlow AI", layout="wide")
 
+CATEGORICAL = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
 BLUE = "#2a78d6"
 
 st.title("Diagnostic Explorer")
@@ -22,6 +24,92 @@ st.caption(
     "Waiting-list, activity, and long-wait trends for one provider and diagnostic test, "
     "across every loaded reporting month."
 )
+
+
+@st.cache_data(ttl=300)
+def load_national_overview() -> pd.DataFrame:
+    """One row per diagnostic test, from analytics.tools.get_national_summary -
+    the same tool the agent calls for "national/overall" questions, so this
+    panel and the chat answer are always backed by the identical computation."""
+    rows = []
+    for test_code in sorted(ALLOWED_TEST_CODES):
+        try:
+            summary = get_national_summary(NationalSummaryInput(test_code=test_code))
+        except ToolError:
+            continue
+        rows.append(
+            {
+                "test_code": test_code,
+                "period_id": summary.period_id,
+                "provider_count": summary.provider_count,
+                "total_waiting": summary.total_waiting,
+                "total_activity": summary.total_activity,
+                "national_pct": summary.national_percentage_waiting_6_plus_weeks,
+                "average_pct": summary.average_percentage_waiting_6_plus_weeks,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+national_df = load_national_overview()
+if not national_df.empty:
+    st.subheader("National overview")
+    st.caption(
+        f"Every loaded provider, aggregated per diagnostic test, for {national_df['period_id'].iloc[0]} "
+        "(src/llm_project/analytics/tools.py::get_national_summary - the same tool the agent uses)."
+    )
+
+    chart_df = pd.melt(
+        national_df,
+        id_vars=["test_code"],
+        value_vars=["national_pct", "average_pct"],
+        var_name="basis",
+        value_name="percentage",
+    )
+    chart_df["basis"] = chart_df["basis"].map(
+        {"national_pct": "National (waiting-weighted)", "average_pct": "Simple average across providers"}
+    )
+    chart = (
+        alt.Chart(chart_df)
+        .mark_bar()
+        .encode(
+            x=alt.X("test_code:N", title=None),
+            xOffset="basis:N",
+            y=alt.Y("percentage:Q", title="Waiting 6+ weeks (%)"),
+            color=alt.Color(
+                "basis:N",
+                scale=alt.Scale(
+                    domain=["National (waiting-weighted)", "Simple average across providers"],
+                    range=[CATEGORICAL[0], CATEGORICAL[1]],
+                ),
+                title=None,
+            ),
+            tooltip=["test_code", "basis", alt.Tooltip("percentage:Q", format=".1f")],
+        )
+        .properties(height=260)
+    )
+    st.altair_chart(chart, use_container_width=True)
+    st.caption(
+        "The waiting-weighted national figure and the simple average across providers are shown "
+        "separately on purpose - averaging percentages across providers of very different sizes "
+        "would misrepresent the true national rate, so the two are never collapsed into one number."
+    )
+
+    with st.expander("National totals by test"):
+        st.dataframe(
+            national_df.rename(
+                columns={
+                    "test_code": "Test", "period_id": "Period", "provider_count": "Providers",
+                    "total_waiting": "Total waiting", "total_activity": "Total activity",
+                    "national_pct": "National % (weighted)", "average_pct": "Average % (unweighted)",
+                }
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.divider()
+    st.subheader("Provider drill-down")
 
 
 @st.cache_data(ttl=300)

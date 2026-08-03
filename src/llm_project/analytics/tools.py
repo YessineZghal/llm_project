@@ -6,7 +6,11 @@ response carries its source period and data-quality warnings.
 All 9 of plan.md's tools are implemented here (find_similar_providers,
 listed as a phase-two feature in plan.md, is included in a minimal form
 since it required no new infrastructure beyond what compare_provider_waits
-already needed).
+already needed), plus two added later once real usage surfaced gaps
+plan.md didn't anticipate: get_bottleneck_ranking (Step 15's Bottleneck
+Ranking page had a computed table with no way to query it) and
+get_national_summary (there was no way to answer an overall/national
+question - every other tool only ever surfaces individual providers).
 """
 
 import time
@@ -670,6 +674,85 @@ def simulate_capacity_change(payload: CapacityScenarioInput) -> CapacityScenario
             implied_monthly_demand=implied_demand, baseline_monthly_activity=current.total_activity,
             additional_monthly_activity=payload.additional_monthly_activity, projection=projection,
             warnings=warnings, execution_time_ms=(time.perf_counter() - start) * 1000,
+        )
+    finally:
+        session.close()
+
+
+# --- get_national_summary ----------------------------------------------------
+
+
+class NationalSummaryInput(BaseModel):
+    test_code: str
+    period_id: str | None = None
+
+
+class NationalSummaryResult(BaseModel):
+    test_code: str
+    period_id: str
+    provider_count: int
+    total_waiting: int
+    total_activity: int
+    national_percentage_waiting_6_plus_weeks: float
+    average_percentage_waiting_6_plus_weeks: float
+    providers_with_full_history: int
+    warnings: list[str]
+    source: str = SOURCE_NOTE
+    execution_time_ms: float
+
+
+def get_national_summary(payload: NationalSummaryInput) -> NationalSummaryResult:
+    """Args:
+        test_code: one of MRI, CT, NON_OBSTETRIC_ULTRASOUND, COLONOSCOPY.
+        period_id: ISO reporting month "YYYY-MM"; defaults to the latest loaded month.
+    Aggregates every loaded provider's figures for one test/period into a
+    single national picture - answers "what's the national/overall MRI
+    waiting list", which no other tool provides (the ranking tools only
+    ever surface individual providers, never a total). The headline
+    percentage is waiting-weighted (sum of long waits divided by sum of
+    total waiting), not a simple average across providers, since
+    averaging percentages across providers of very different sizes would
+    misrepresent the true national rate; the unweighted average is also
+    returned, explicitly labeled, so the two are never conflated.
+    """
+    start = time.perf_counter()
+    session = get_session()
+    try:
+        test_code = _validate_test_code(payload.test_code)
+        period_id = payload.period_id or _latest_period_id(session)
+
+        rows = session.query(ProviderTestMonthMetric).filter_by(test_code=test_code, period_id=period_id).all()
+        if not rows:
+            raise ToolError(f"no data for test {test_code!r}, period {period_id!r}")
+
+        total_waiting = sum(r.total_waiting for r in rows)
+        total_activity = sum(r.total_activity for r in rows)
+        total_waiting_6_plus = sum(r.waiting_6_plus_weeks for r in rows)
+        national_pct = (total_waiting_6_plus / total_waiting * 100) if total_waiting else 0.0
+        avg_pct = sum(r.percentage_waiting_6_plus_weeks for r in rows) / len(rows)
+        complete_count = sum(1 for r in rows if r.quality_flag == "complete")
+
+        warnings = [
+            "this is an aggregate over the providers currently loaded into the system, not a "
+            "guaranteed full national census - see DATA_SOURCES.md for the loaded window",
+        ]
+        if complete_count < len(rows):
+            warnings.append(
+                f"{len(rows) - complete_count} of {len(rows)} providers lack prior-month history "
+                "for month-over-month figures"
+            )
+
+        return NationalSummaryResult(
+            test_code=test_code,
+            period_id=period_id,
+            provider_count=len(rows),
+            total_waiting=total_waiting,
+            total_activity=total_activity,
+            national_percentage_waiting_6_plus_weeks=round(national_pct, 2),
+            average_percentage_waiting_6_plus_weeks=round(avg_pct, 2),
+            providers_with_full_history=complete_count,
+            warnings=warnings,
+            execution_time_ms=(time.perf_counter() - start) * 1000,
         )
     finally:
         session.close()

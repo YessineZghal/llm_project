@@ -8,6 +8,7 @@ arithmetic.
 """
 
 import time
+import uuid
 
 import streamlit as st
 
@@ -24,8 +25,13 @@ from llm_project.db.client import log_conversation, log_feedback
 from llm_project.db.models import get_session
 from llm_project.db.nhs_schema import DiagnosticTest, Provider, ReportingPeriod
 from llm_project.rag.agent import ask_agent
+from llm_project.rag.grounding import build_evidence_package, check_numeric_grounding
+from llm_project.rag.intent import infer_intent_from_evidence
 
 st.set_page_config(page_title="ScanFlow AI", layout="wide")
+
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())  # groups this browser session's interactions for monitoring
 
 
 @st.cache_data(ttl=300)
@@ -43,31 +49,6 @@ def load_reference_data():
         return tests, periods, providers
     finally:
         session.close()
-
-
-def extract_source_doc_ids(messages: list) -> list[str]:
-    """Pull document ids out of search_knowledge_base / retrieve_metric_definition
-    tool results in the agent's message trace, for monitoring's "most-cited
-    source documents" chart. Content-based detection (a list of docs with an
-    "id" key, or a single result with a "document_id" key) rather than
-    correlating tool_call_id, since either shape is unambiguous on its own."""
-    import json as _json
-
-    ids: list[str] = []
-    for m in messages:
-        role = m.get("role") if isinstance(m, dict) else getattr(m, "role", None)
-        if role != "tool":
-            continue
-        content = m.get("content") if isinstance(m, dict) else getattr(m, "content", None)
-        try:
-            parsed = _json.loads(content)
-        except (TypeError, ValueError):
-            continue
-        if isinstance(parsed, list):
-            ids.extend(d["id"] for d in parsed if isinstance(d, dict) and "id" in d)
-        elif isinstance(parsed, dict) and parsed.get("document_id"):
-            ids.append(parsed["document_id"])
-    return ids
 
 
 def render_feedback(state_key: str):
@@ -122,21 +103,48 @@ with tab_ask:
     for i, message in enumerate(st.session_state.agent_messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-            if message["role"] == "assistant" and message.get("conv_id"):
-                voted = message.get("voted")
-                col1, col2, _ = st.columns([1, 1, 10])
-                with col1:
-                    if st.button("Helpful", key=f"ask_up_{i}", disabled=voted is not None):
-                        log_feedback(message["conv_id"], 1)
-                        message["voted"] = "up"
-                        st.rerun()
-                with col2:
-                    if st.button("Not helpful", key=f"ask_down_{i}", disabled=voted is not None):
-                        log_feedback(message["conv_id"], -1)
-                        message["voted"] = "down"
-                        st.rerun()
-                if voted:
-                    st.caption(f"Thanks for the feedback ({voted}).")
+            if message["role"] == "assistant":
+                evidence = message.get("evidence")
+                grounding = message.get("grounding")
+                if evidence is not None:
+                    icon = "" if grounding and grounding["fully_grounded"] else " (unverified numbers found)"
+                    with st.expander(f"Evidence and grounding check{icon}"):
+                        if grounding:
+                            st.write(
+                                f"Numeric grounding: {grounding['grounded']}/{grounding['total']} "
+                                f"figures in this answer were verified against tool results."
+                            )
+                            if grounding["ungrounded"]:
+                                st.warning(f"Not directly verified: {', '.join(str(n) for n in grounding['ungrounded'])}")
+                        if evidence["reporting_periods"]:
+                            st.write(f"**Reporting periods used:** {', '.join(evidence['reporting_periods'])}")
+                        if evidence["tool_results"]:
+                            st.write("**Tools called:**")
+                            for tr in evidence["tool_results"]:
+                                st.caption(f"- {tr['tool_name']}({tr['arguments']})")
+                        if evidence["retrieved_passages"]:
+                            st.write("**Sources:**")
+                            for p in evidence["retrieved_passages"]:
+                                st.caption(f"- [{p['id']}] {p.get('title', '')}")
+                        if evidence["warnings"]:
+                            st.write("**Data-quality warnings:**")
+                            for w in evidence["warnings"]:
+                                st.caption(f"- {w}")
+                if message.get("conv_id"):
+                    voted = message.get("voted")
+                    col1, col2, _ = st.columns([1, 1, 10])
+                    with col1:
+                        if st.button("Helpful", key=f"ask_up_{i}", disabled=voted is not None):
+                            log_feedback(message["conv_id"], 1)
+                            message["voted"] = "up"
+                            st.rerun()
+                    with col2:
+                        if st.button("Not helpful", key=f"ask_down_{i}", disabled=voted is not None):
+                            log_feedback(message["conv_id"], -1)
+                            message["voted"] = "down"
+                            st.rerun()
+                    if voted:
+                        st.caption(f"Thanks for the feedback ({voted}).")
 
     question = st.chat_input("Ask about NHS diagnostic waiting times...")
     if question:
@@ -153,18 +161,48 @@ with tab_ask:
                 st.session_state.agent_history = loop_result.all_messages
                 st.markdown(answer)
 
+            evidence = build_evidence_package(loop_result.new_messages)
+            grounding_check = check_numeric_grounding(answer, evidence)
+
+            tools_called = [tr["tool_name"] for tr in evidence.tool_results if tr.get("tool_name")]
+            tool_success = (
+                all(not (isinstance(tr.get("result"), dict) and "error" in tr["result"]) for tr in evidence.tool_results)
+                if evidence.tool_results
+                else None
+            )
+            intent = infer_intent_from_evidence(evidence.tool_results, answer)
+            tokens = getattr(loop_result, "tokens", None)
+            cost = getattr(loop_result, "cost", None)
+
             conv_id = None
             try:
                 conv_id = log_conversation(
                     question=question, answer=answer, mode="agent", model=OPENAI_CHAT_MODEL,
                     response_time_seconds=elapsed, retrieval_method=None, prompt_variant=None,
-                    source_doc_ids=extract_source_doc_ids(loop_result.new_messages),
+                    source_doc_ids=[p["id"] for p in evidence.retrieved_passages if p.get("id")],
+                    session_id=st.session_state.session_id, intent=intent,
+                    tools_called=tools_called, tool_success=tool_success,
+                    prompt_tokens=tokens.input_tokens if tokens else None,
+                    completion_tokens=tokens.output_tokens if tokens else None,
+                    estimated_cost=float(cost.total_cost) if cost else None,
                 )
             except Exception as e:
                 st.caption(f"(monitoring DB unavailable: {e})")
 
         st.session_state.agent_messages.append(
-            {"role": "assistant", "content": answer, "conv_id": conv_id, "voted": None}
+            {
+                "role": "assistant",
+                "content": answer,
+                "conv_id": conv_id,
+                "voted": None,
+                "evidence": evidence.to_dict(),
+                "grounding": {
+                    "total": grounding_check.total_numbers,
+                    "grounded": grounding_check.grounded_numbers,
+                    "ungrounded": grounding_check.ungrounded,
+                    "fully_grounded": grounding_check.fully_grounded,
+                },
+            }
         )
         st.rerun()
 
@@ -202,7 +240,8 @@ with tab_rank:
                 conv_id = log_conversation(
                     question=question, answer=answer, mode="rank_provider_waits", model="tool:rank_provider_waits",
                     response_time_seconds=result.execution_time_ms / 1000, retrieval_method=None, prompt_variant=None,
-                    source_doc_ids=[],
+                    source_doc_ids=[], session_id=st.session_state.session_id, intent="rank_providers",
+                    tools_called=["rank_provider_waits"], tool_success=True,
                 )
             except Exception as e:
                 st.session_state["rank_db_error"] = str(e)
@@ -255,7 +294,8 @@ with tab_profile:
                     ),
                     mode="get_provider_profile", model="tool:get_provider_profile",
                     response_time_seconds=profile.execution_time_ms / 1000, retrieval_method=None, prompt_variant=None,
-                    source_doc_ids=[],
+                    source_doc_ids=[], session_id=st.session_state.session_id, intent="provider_profile",
+                    tools_called=["get_provider_profile"], tool_success=True,
                 )
             except Exception as e:
                 st.session_state["profile_db_error"] = str(e)

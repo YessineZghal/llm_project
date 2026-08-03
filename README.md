@@ -25,8 +25,8 @@ version:
 | 3 | Analytics vertical slice: derived metrics, analytical tools, minimal interface | Complete |
 | 4 | Retrieval-augmented generation: corpus generation, retrieval evaluation | Complete |
 | 5 | Agent: query rewriting, full tool set, agent, agent evaluation | Complete |
-| 6 | Quality and interface: grounded generation, LLM evaluation, full interface | Partially complete |
-| 7 | Operations: monitoring extension, containerization finalization | Partially complete |
+| 6 | Quality and interface: grounded generation, LLM evaluation, full interface | Complete |
+| 7 | Operations: monitoring extension, containerization finalization | Complete |
 | 8 | Submission: documentation, rubric audit | Not started |
 
 Everything described as "complete" below has been verified against real
@@ -135,17 +135,18 @@ rest of the application so dependencies never drift between the two.
 | Agent tool-calling | toyaikit |
 | Language model | OpenAI (gpt-4o-mini by default) |
 | Interface | Streamlit |
-| Monitoring | PostgreSQL interaction log and a Streamlit dashboard |
+| Monitoring | PostgreSQL interaction log, a Streamlit dashboard, and Grafana |
 | Containerization | Docker Compose |
 
 A number of deliberate substitutions were made relative to the original
 21-step specification in `plan.md`, which called for Prefect, a separate
 FastAPI backend, PostgreSQL with the pgvector extension, and Grafana.
-These were replaced with Kestra, a Streamlit-only interface, minsearch
-and Elasticsearch, and a Streamlit monitoring dashboard, respectively, to
-reuse tooling already established for this course rather than
-introducing a second stack. The rationale for each substitution, and
-what is gained or given up by it, is recorded in `agent/PLAN.md`.
+These were replaced with Kestra, a Streamlit-only interface, and
+minsearch and Elasticsearch, respectively, to reuse tooling already
+established for this course rather than introducing a second stack. The
+rationale for each substitution, and what is gained or given up by it, is
+recorded in `agent/PLAN.md`. Grafana was added back later as an addition,
+not a replacement - see "Monitoring" below.
 
 ## Data model
 
@@ -309,10 +310,22 @@ All nine analytical tools specified in `plan.md` are implemented, in
 `find_similar_providers`, `simulate_capacity_change`, and
 `retrieve_metric_definition` (the only one that calls the retrieval layer
 rather than SQL directly, since metric definitions are reference text,
-not a computed fact). A tenth tool, `get_bottleneck_ranking`, was added to
-make the bottleneck score (computed by every metrics run, but not covered
-by `rank_provider_waits`'s allowlist, since it lives in its own table)
-actually queryable - by test, period, and weighting scenario.
+not a computed fact). Two more were added once real usage surfaced gaps
+plan.md didn't anticipate: `get_bottleneck_ranking`, so the bottleneck
+score (computed by every metrics run, but not covered by
+`rank_provider_waits`'s allowlist, since it lives in its own table) is
+actually queryable - by test, period, and weighting scenario - and
+`get_national_summary`, since every other tool only ever surfaces
+individual providers and there was no way to answer an "overall/national
+picture" question at all. Its headline figure is waiting-weighted (the
+sum of long waits divided by the sum of total waiting across every
+loaded provider), not a simple average of each provider's percentage -
+averaging percentages across providers of very different sizes would
+misrepresent the true national rate. Both numbers are returned, clearly
+labeled, so they are never conflated; on real data the gap between them
+is substantial (MRI: 23.0% waiting-weighted versus 7.8% simple average),
+which is exactly the kind of aggregation mistake reporting only one
+number would risk.
 
 Every tool shares the same design: inputs are validated Pydantic models,
 diagnostic test codes and rankable metrics are restricted to an
@@ -330,7 +343,7 @@ the Capacity Scenario page.
 ## Query rewriting, intent classification, and the agent
 
 `src/llm_project/rag/intent.py` implements plan.md Step 10: a language
-model classifies a question into one of nine intents and extracts
+model classifies a question into one of ten intents and extracts
 mentioned entities (provider names, diagnostic test, metric, dates), but
 resolving those mentions against real data is done in code, not trusted
 from the model - `resolve_provider` looks up real providers and
@@ -340,12 +353,16 @@ rather than silently picking one; `resolve_test` and `resolve_metric`
 reject anything outside the fixed allowlists rather than guessing.
 
 `src/llm_project/rag/agent.py` is a toyaikit tool-calling agent wired to
-all nine analytical tools plus knowledge-base search, following rules
+all eleven analytical tools plus knowledge-base search, following rules
 enforced in its system prompt: never calculate a number itself (every
 figure must come from a tool), always state the exact reporting period,
 always relay a tool's data-quality warnings, never use causal language,
-and refuse individual clinical requests (predicting a personal wait time,
-prioritizing a specific patient, diagnosis, or treatment advice).
+always retrieve from the knowledge base for methodology/data-provenance
+questions rather than answering from unsourced general knowledge, always
+use `get_national_summary` rather than summing or averaging provider
+figures itself for an overall/national question, and refuse individual
+clinical requests (predicting a personal wait time, prioritizing a
+specific patient, diagnosis, or treatment advice).
 
 Verified with real questions and real OpenAI calls: a ranking question
 correctly calls `rank_provider_waits` and returns the exact figures
@@ -360,7 +377,8 @@ summary.
 
 `src/llm_project/eval/evaluate_agent.py` implements plan.md Step 12: a
 test bank of 117 cases (exceeding the "at least 100" requirement) covering
-every intent, all nine tools, and plan.md's named difficult cases -
+every intent, the original nine analytical tools plus knowledge-base
+search, and plan.md's named difficult cases -
 partial and ambiguous provider names, missing parameters, and 15
 unsupported-medical-request safety cases - run against the real intent
 classifier and the real agent, not mocked. It measures intent accuracy,
@@ -397,17 +415,31 @@ since both search the same corpus. A few (3 cases with a missing
 diagnostic-test parameter) show the agent proactively calling
 `get_provider_profile` once per supported test rather than asking for
 clarification - a different but reasonably helpful strategy, not the
-behavior the test case assumed. The genuine gap worth tracking: on 4 of 8
+behavior the test case assumed. The genuine gap found: on 4 of 8
 methodology questions, the agent answered without calling
 `search_knowledge_base` at all. Two of those four ("Is the bottleneck
 score an official NHS measure?", "Does this application make causal
 claims?") are directly answerable from rules already stated in the
 agent's own system prompt, so answering without a tool call is
 defensible. The other two ("Where does this data come from?", "Can
-figures be revised after publication?") are not covered by the system
-prompt and require the methodology documents specifically - these are a
-real inconsistency in the "always retrieve for methodology questions"
-rule the prompt asks for, worth tightening in Milestone 6.
+figures be revised after publication?") were not covered by the system
+prompt and required the methodology documents specifically - a real
+inconsistency in the "always retrieve for methodology questions" rule.
+
+**Fixed**: the system prompt's methodology rule was rewritten to name the
+specific question classes it must apply to without exception (term/metric
+meaning, data provenance, calculation method, revision policy), rather
+than a general "for methodology questions" instruction the model could
+selectively apply. Re-tested live with the exact two previously-failing
+questions - both now correctly call `search_knowledge_base` before
+answering. This account is honest about scope, not the full 117-case
+suite re-run: `get_bottleneck_ranking` and `get_national_summary` (the
+tool added alongside this fix, for "what's the national/overall picture"
+questions - no other tool provides that) were both added after this eval
+bank was built and are not yet covered by dedicated eval cases; both are
+verified instead via direct real-agent calls documented in "Query
+rewriting, intent classification, and the agent" above and in
+`agent/PROGRESS.md`.
 
 An earlier version of this evaluation script had its own bug: it counted
 all 18 cases with `expected_tool=None` as "safety" cases, when 3 of those
@@ -416,6 +448,64 @@ cases, silently understating refusal correctness. Fixed in
 `evaluate_agent.py` (`note == "safety"` instead of `expected_tool is
 None`) and reflected in the number above: **100% (15/15)** of the actual
 unsupported-medical-request cases were correctly refused, not 83.3%.
+
+## Grounded generation and evaluation
+
+The system prompt (`rag/agent.py`) *asks* the model to ground every number
+in a tool result; `rag/grounding.py` is the separate module that *checks*
+it, so grounding is verified rather than assumed. `build_evidence_package`
+reconstructs a structured record (tool calls and results, retrieved
+passages, reporting periods, warnings) from the agent's own message trace.
+`check_numeric_grounding` then extracts every standalone number in the
+final answer (excluding digit fragments embedded in provider codes like
+"NT322", and small numbers below 10, which are typically request
+parameters like "top 5" rather than factual claims) and confirms each one
+appears in the evidence, within a small rounding tolerance. This is unit
+tested (`tests/unit/test_grounding.py`, 6 cases) against constructed
+evidence, and evaluated against the real agent (`eval/evaluate_grounding.py`,
+`make evaluate-grounding`) on a real, randomly sampled 50-question set:
+
+| Metric | Result |
+|---|---|
+| Answers fully grounded (every number verified) | 48/50 (96.0%) |
+| Individual numbers grounded | 156/158 (98.7%) |
+
+Both exceptions were manually reviewed (`data/eval/grounding_eval_results.csv`)
+and found benign rather than fabrication: one was a meta-count in an
+ambiguity list (the number of candidates offered, not a data figure), the
+other reproduced on a retry with the same evidence but a differently
+worded answer - LLM output variance, not a grounding failure. This meets
+plan.md Step 13's acceptance gate directly ("every factual number in a
+sample of 50 answers can be matched to a tool result").
+
+`eval/evaluate_llm_pipelines.py` (`make evaluate-pipelines`) compares
+three complete answer-generation configurations on the same 18 real
+questions (a quota-sampled mix across ranking, profile, trend,
+definition, methodology, and refusal cases), scoring each on numeric
+grounding, source citation, and an LLM judge (clarity, appropriate
+uncertainty, refusal correctness):
+
+| Config | Grounded | Citation rate\* | Clarity | Uncertainty | Refusal |
+|---|---|---|---|---|---|
+| A: dense retrieval only, no rewriting, concise prompt, no tools | 100% | 53% | 5.00 | 5.00 | 5.00 |
+| B: query rewriting + hybrid retrieval, strict prompt, no tools | 100% | 93% | 5.00 | 5.00 | 5.00 |
+| C: full agent (tools + hybrid+rerank retrieval + intent/entity resolution) | 100% | 93% | 5.00 | 5.00 | 5.00 |
+
+\*Citation rate is measured over the 15 citable questions per config
+(excluding the 3 refusal cases, where correctly declining to cite data is
+the right behavior, not a gap).
+
+All three configurations were numerically grounded on this sample and the
+LLM judge scores saturated at the ceiling (a small-sample, single-judge
+effect - not read as "all configurations are equally good"). The
+discriminating result is citation rate: the simplest baseline (A) names
+its source document only about half the time even when one is available,
+while both configurations with query rewriting and richer retrieval (B
+and C) cite consistently. This is measured evidence for choosing the full
+agent (C) as the production configuration - not preference - since it
+matches B's citation reliability while additionally providing tool-backed
+numbers, entity resolution, and the refusal/routing logic a pure retrieval
+pipeline does not have.
 
 ## Interface
 
@@ -426,8 +516,10 @@ a chat interface backed by the agent - ask a question in your own words.
 directly with no language model in the loop, for a structured lookup
 rather than a conversation. Four further pages under
 `src/llm_project/app/pages/` add dedicated, chart-based views:
-**Diagnostic Explorer** (waiting-list, activity, and long-wait trend
-charts for one provider and test across every loaded month),
+**Diagnostic Explorer** (a national overview across all four diagnostic
+tests - backed by `get_national_summary`, the same tool the agent uses -
+above a per-provider waiting-list, activity, and long-wait trend view
+across every loaded month),
 **Provider Comparison** (2 to 5 providers compared on the same test and
 period), **Bottleneck Ranking** (ranked score plus a component-level
 breakdown chart, so the score is explainable rather than a single opaque
@@ -449,18 +541,55 @@ uv run streamlit run src/llm_project/app/streamlit_app.py
 
 Every interaction with the application - from any of the three interface
 views - is logged to PostgreSQL: the question, the answer, which mode
-served it, response time, cited source documents (extracted from the
-agent's own tool calls when it uses knowledge-base search), and any user
-feedback.
+served it, response time, cited source documents, a session id (so a
+browser session's interactions can be grouped), an intent label, which
+tools were called and whether they all succeeded, prompt/completion token
+counts, estimated cost, and any user feedback. `db/models.py` adds these
+columns with an idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
+migration run at startup (`init_db()`, no separate migration framework for
+one table) - existing rows from before this field set are preserved with
+nulls, not dropped.
+
+The intent label is deliberately not a separate classifier call: it is
+inferred for free from which analytical tool the agent actually invoked
+(`rag/intent.py::infer_intent_from_evidence`), so it reflects real routing
+behavior rather than a second LLM's guess at the question in isolation,
+at no added latency or cost per question.
 
 The monitoring dashboard, `src/llm_project/app/pages/1_Monitoring.py`,
 reads this log and presents: interaction volume over time, interactions
 by mode, questions by diagnostic test (inferred from question text),
-response time distribution, feedback breakdown, and most-cited source
-documents - six charts, exceeding the rubric's five-chart threshold for
-full monitoring points. It will be extended further in Milestone 7 with
-additional charts from plan.md Step 16's list (tool success rate,
-ingestion freshness).
+response time distribution, feedback breakdown, most-cited sources,
+questions by intent, tool success rate, estimated LLM cost per day, and
+data ingestion freshness (from `source_files.downloaded_at`) - ten charts
+plus five summary KPIs, well past the rubric's five-chart threshold for
+full monitoring points.
+
+### Grafana
+
+A Grafana instance (`docker-compose.yml`'s `grafana` service) is
+provisioned automatically from `grafana/provisioning/` with a data
+source over the same `app_postgres` database (see "Security" for exactly
+what access that data source has), and a "ScanFlow AI -
+Monitoring" dashboard (`grafana/provisioning/dashboards/json/scanflow-monitoring.json`)
+with ten panels - four summary stats (conversations, positive feedback
+rate, average response time, total LLM cost) plus conversations per day,
+interactions by mode, questions by intent, tool success rate, estimated
+LLM cost per day, and data ingestion freshness. It reads the exact same
+`conversations`, `feedback`, and `source_files` tables as the Streamlit
+page - there is no separate metrics pipeline to keep in sync, and no
+panel's number is invented; every one is a real SQL query against live
+data, verified via Grafana's own query API
+(`POST /api/ds/query`) against real logged conversations.
+
+This is additive, not a replacement: the Streamlit dashboard is the
+primary, richer monitoring surface (its melted bottleneck-component
+chart and per-conversation drill-down have no Grafana equivalent here),
+and Grafana provides a second, standard ops-dashboard view for anyone who
+specifically wants one. Start it with `make up` (included by default) or
+`make grafana` alone, then open `http://localhost:3000` (loopback-only,
+like Elasticsearch and Postgres - see "Security" below) and sign in with
+`GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` from `.env`.
 
 ## Running the project
 
@@ -468,12 +597,13 @@ ingestion freshness).
 
 ```
 cp .env.example .env
-docker compose up --build -d app elasticsearch app_postgres
+docker compose up --build -d app elasticsearch app_postgres grafana
 ```
 
-This starts the application, its PostgreSQL database, and Elasticsearch.
-Add `kestra kestra_postgres` to the command, or omit the service list
-entirely to start everything, to also run the orchestration layer.
+This starts the application, its PostgreSQL database, Elasticsearch, and
+Grafana (`make up` does the same). Add `kestra kestra_postgres` to the
+command, or omit the service list entirely to start everything, to also
+run the orchestration layer.
 
 The database schema is created automatically on first use. Data and the
 search index must be built once; see below.
@@ -494,8 +624,11 @@ uv run streamlit run src/llm_project/app/streamlit_app.py
 Current source file URLs can be found by running
 `uv run python -m llm_project.ingest.nhs_discover`, which prints the
 current month's file links directly from NHS England's publication
-pages, or found in `DATA_SOURCES.md`. The `Makefile` wraps these steps
-(`make ingest`, `make metrics`, `make corpus`, `make index`).
+pages, or found in `DATA_SOURCES.md`. `make bootstrap` runs the full
+first-time sequence above (services, discovery-based ingestion, metrics,
+corpus, index) in one step on a clean checkout; the `Makefile` also wraps
+the individual steps separately (`make ingest`, `make metrics`,
+`make corpus`, `make index`).
 
 ### Orchestrated ingestion through Kestra
 
@@ -516,7 +649,8 @@ afterward.
 See `.env.example` for the complete, documented list. At minimum, an
 `OPENAI_API_KEY` is required (used for intent classification, the agent,
 and query rewriting), and a running PostgreSQL plus Elasticsearch
-instance.
+instance. `GRAFANA_ADMIN_PASSWORD` is required if running the `grafana`
+service (no built-in default - see "Security").
 
 ## Security
 
@@ -531,13 +665,21 @@ user text cannot be interpreted as query syntax. The Streamlit app never
 sets `unsafe_allow_html`, so LLM-generated answer text is always rendered
 through Streamlit's sanitized markdown renderer, not raw HTML.
 
-`docker-compose.yml`'s `elasticsearch` and `app_postgres` services are
-bound to `127.0.0.1` only (not all network interfaces) - Elasticsearch
-runs with security disabled and Postgres ships with an example password
-in `.env.example`, both fine for local development but never intended to
-be reachable from outside the host. `APP_POSTGRES_PASSWORD` has no
-built-in default in `docker-compose.yml`; it must be set in `.env` or the
-stack refuses to start. `.env` is gitignored and confirmed never
+`docker-compose.yml`'s `elasticsearch`, `app_postgres`, and `grafana`
+services are all bound to `127.0.0.1` only (not all network interfaces) -
+Elasticsearch runs with security disabled and Postgres ships with an
+example password in `.env.example`, both fine for local development but
+never intended to be reachable from outside the host. Both
+`APP_POSTGRES_PASSWORD` and `GRAFANA_ADMIN_PASSWORD` have no built-in
+default in `docker-compose.yml`; each must be set in `.env` or the stack
+refuses to start. Grafana's Postgres data source is provisioned as
+non-editable through the UI (`editable: false`), with credentials
+sourced from the same `.env` variables the application itself uses, not
+hardcoded in `grafana/provisioning/`. It authenticates as the same
+`APP_POSTGRES_USER` the application writes with, not a separately
+restricted read-only database role - worth knowing before pointing this
+setup at anything beyond local development, where a dedicated read-only
+role would be the safer choice. `.env` is gitignored and confirmed never
 committed to git history.
 
 ## Testing
@@ -551,10 +693,11 @@ make test                             # both
 Unit tests (`tests/unit/`) cover source file parsing, validation
 rejection behavior, provider-level aggregation, reporting-period label
 parsing, fiscal-year boundary logic, derived-metric formulas with
-hand-calculated examples, and analytical-tool input validation - 42
-tests, all using small deterministic fixtures with no live network or
-database access. Integration tests (`tests/integration/`) verify the
-analytical tools and stored metrics against the real loaded database.
+hand-calculated examples, analytical-tool input validation, and numeric
+grounding checks - 37 tests, all using small deterministic fixtures with
+no live network or database access. Integration tests (`tests/integration/`)
+verify the analytical tools and stored metrics against the real loaded
+database.
 
 `uv run ruff check src tests` is clean; CI (`.github/workflows/ci.yml`)
 runs lint, both test suites (integration against a temporary Postgres
@@ -576,27 +719,32 @@ src/llm_project/
     client.py                  logging and dashboard query helpers
   analytics/
     metrics.py               derived metrics and bottleneck score computation
-    tools.py                   all 9 analytical tools
+    tools.py                   all 11 analytical tools
   rag/
     generate_corpus.py       RAG corpus generation from database facts
-    intent.py                  query rewriting / intent classification / entity resolution
+    intent.py                  query rewriting / intent classification / entity resolution / free intent inference
     agent.py                    the tool-calling agent
+    grounding.py                 evidence package + numeric grounding check
     pipeline.py, prompts.py, query_rewrite.py   supporting RAG pipeline pieces
   search/                   retrieval layer (6 methods) - reused unchanged
   eval/
     generate_ground_truth.py   retrieval ground truth generation
     evaluate_retrieval.py        retrieval evaluation (6 methods x 5 metrics)
     evaluate_agent.py              agent evaluation (117 cases)
+    evaluate_grounding.py          numeric grounding check over 50 real answers
+    evaluate_llm_pipelines.py      3-way answer-generation pipeline comparison
   app/
     streamlit_app.py         interface: Ask ScanFlow, Rank providers, Provider profile
-    pages/1_Monitoring.py      monitoring dashboard
+    pages/                      Monitoring, Methodology, Diagnostic Explorer,
+                                 Provider Comparison, Bottleneck Ranking, Capacity Scenario
 flows/ingest_diagnostics.yaml   Kestra orchestration flow
+grafana/provisioning/            Grafana datasource + dashboard provisioning (auto-loaded)
 database/schema.sql              generated schema reference
 docs/architecture.md             system diagram, full ERD, design principles
 docs/data_dictionary.md          source file column documentation
 docs/rubric-checklist.md         course rubric tracked against status
 tests/unit/, tests/integration/  test suites
-Makefile                         up/ingest/metrics/corpus/index/test/evaluate/app targets
+Makefile                         bootstrap/up/ingest/metrics/corpus/index/test/evaluate/app targets
 .github/workflows/ci.yml         lint, tests, Docker build, secret scan
 DATA_SOURCES.md                  data source registry
 plan.md                          original 21-step project specification
@@ -606,6 +754,7 @@ agent/PROGRESS.md                continuously updated build log
 
 ## Example questions
 
+- What is the national picture for MRI waiting times?
 - Which providers have the highest MRI long-wait rates?
 - How has [provider]'s CT waiting list changed over the loaded months?
 - Compare [provider A] and [provider B] for non-obstetric ultrasound.
@@ -636,18 +785,20 @@ document type, or period), which plan.md Step 7 specifies; retrieval
 currently relies on the query text alone. Query rewriting extracts dates
 as free text but has no dedicated relative-date resolution utility (for
 example, "last month" is not parsed - only an explicit `YYYY-MM` or
-omitting the period for "latest").
+omitting the period for "latest"). There is no mock or offline mode: the
+agent, intent inference for evaluation labeling, and every evaluation
+script call the real OpenAI API, so `OPENAI_API_KEY` is required to run
+the application or its evaluations - there is no local-model or
+recorded-response fallback for demonstrating the system without API
+access or cost.
 
 ## Roadmap
 
-The remainder of Milestone 6 (a dedicated evidence-package/citation
-formatter as its own testable module, and a formal three-way comparison
-of answer-generation pipelines per plan.md Step 14 - the agent has been
-evaluated as a single configuration, not compared against simpler
-alternatives) and Milestone 7 (further monitoring chart extensions: tool
-success rate, ingestion freshness, token cost) are the main remaining
-work, followed by Milestone 8's final documentation and rubric audit. All
-six Streamlit pages from Step 15 are now built.
+Milestones 1-7 are complete and verified against real data and a real
+running system. Milestone 8 (final documentation pass and a rubric
+self-audit against `docs/rubric-checklist.md`, including a real
+click-through with screenshots) is the only remaining work before
+submission.
 
 ## Course rubric mapping
 
@@ -656,9 +807,9 @@ six Streamlit pages from Step 15 are now built.
 | Problem description | Described above |
 | Knowledge base and language model | Both used: 1,870-document generated corpus, OpenAI-backed agent |
 | Retrieval evaluation | 6 methods evaluated, best one (es_hybrid_rerank) used - results above |
-| Language model evaluation | Agent evaluated (117 cases); formal multi-pipeline answer comparison planned for Milestone 6 |
+| Language model evaluation | Agent evaluated (117 cases); numeric grounding verified (96% of 50 answers fully grounded); 3-way pipeline comparison (dense-only vs rewriting+hybrid vs full agent) - results above |
 | Interface | Streamlit, 7 pages including a full chat interface and 4 chart-based analysis pages |
 | Ingestion pipeline | Automated, orchestrated by Kestra, verified end to end |
-| Monitoring | Feedback collected and a 6-chart dashboard, exceeding the 5-chart threshold |
-| Containerization | Docker Compose covers the application, database, search, and orchestration services |
+| Monitoring | Feedback collected and a 10-chart Streamlit dashboard, well past the 5-chart threshold, plus a second Grafana dashboard over the same data |
+| Containerization | Docker Compose covers the application, database, search, orchestration, and monitoring (Grafana) services |
 | Reproducibility | Pinned dependencies, documented environment variables, verified setup instructions above, CI |

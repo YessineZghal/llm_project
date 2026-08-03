@@ -15,7 +15,6 @@ RAW_DOCS_PATH = RAW_DIR / "documents.jsonl"  # RAG corpus (provider profiles, de
 GROUND_TRUTH_PATH = EVAL_DIR / "retrieval_ground_truth.jsonl"
 RETRIEVAL_EVAL_RESULTS_PATH = EVAL_DIR / "retrieval_eval_results.csv"
 RETRIEVAL_ERROR_ANALYSIS_PATH = EVAL_DIR / "retrieval_error_analysis.md"
-RAG_EVAL_RESULTS_PATH = EVAL_DIR / "rag_eval_results.csv"
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")

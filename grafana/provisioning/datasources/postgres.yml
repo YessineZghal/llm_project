@@ -1,0 +1,23 @@
+# Provisions the app's own Postgres (conversations/feedback/source_files -
+# the same data src/llm_project/db/client.py reads for the Streamlit
+# monitoring page) as a read-only Grafana data source. Credentials are read
+# from the grafana service's own environment (see docker-compose.yml),
+# which in turn come from .env - never hardcoded here.
+apiVersion: 1
+
+datasources:
+  - name: ScanFlow Postgres
+    uid: scanflow-postgres
+    type: postgres
+    access: proxy
+    url: app_postgres:5432
+    database: $APP_POSTGRES_DB
+    user: $APP_POSTGRES_USER
+    isDefault: true
+    editable: false
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1800
+      timescaledb: false
+    secureJsonData:
+      password: $APP_POSTGRES_PASSWORD

@@ -27,14 +27,15 @@ Intent = Literal[
     "trend_analysis",
     "cdc_analysis",
     "capacity_scenario",
+    "national_summary",
     "methodology_question",
     "unsupported_medical_request",
 ]
 
 INTENTS: tuple[str, ...] = (
     "definition_lookup", "provider_profile", "compare_providers", "rank_providers",
-    "trend_analysis", "cdc_analysis", "capacity_scenario", "methodology_question",
-    "unsupported_medical_request",
+    "trend_analysis", "cdc_analysis", "capacity_scenario", "national_summary",
+    "methodology_question", "unsupported_medical_request",
 )
 
 
@@ -62,6 +63,7 @@ Intents (choose exactly one):
 - trend_analysis: asking how one provider's figures changed over time
 - cdc_analysis: asking about Community Diagnostic Centre activity
 - capacity_scenario: asking what would happen under a hypothetical capacity change
+- national_summary: asking about the national/overall picture for a test, not one specific provider
 - methodology_question: asking about data sources, methodology, or limitations
 - unsupported_medical_request: asking for individual clinical advice, diagnosis,
   personal wait-time prediction, or anything about a specific patient
@@ -81,6 +83,42 @@ Return ONLY a JSON object of the exact form:
   "sort_order": "<ascending, descending, or null>"
 }}
 """.strip()
+
+
+_TOOL_TO_INTENT = {
+    "get_provider_profile": "provider_profile",
+    "rank_provider_waits": "rank_providers",
+    "get_bottleneck_ranking": "rank_providers",
+    "get_national_summary": "national_summary",
+    "compare_provider_waits": "compare_providers",
+    "analyze_waiting_trend": "trend_analysis",
+    "compare_activity_and_waiting": "trend_analysis",
+    "analyze_cdc_activity": "cdc_analysis",
+    "find_similar_providers": "compare_providers",
+    "simulate_capacity_change": "capacity_scenario",
+    "retrieve_metric_definition": "definition_lookup",
+    "search_knowledge_base": "definition_lookup",
+}
+_REFUSAL_MARKERS = ("individual clinical", "aggregate, provider-level", "diagnosis", "treatment advice")
+
+
+def infer_intent_from_evidence(tool_results: list[dict], answer: str) -> str:
+    """A free (no extra LLM call) intent label for monitoring, inferred from
+    which tool the agent actually invoked - not a classification of the
+    question in isolation like `classify_intent` (used only for eval
+    labeling). `resolve_provider_code` is skipped since it's a resolution
+    step, not the substance of the question. Deliberately a heuristic over a
+    fixed lookup table, not a guess dressed up as ground truth: falls back to
+    "unsupported_medical_request" only on a keyword match in the refusal
+    language the system prompt requires, and "other" otherwise."""
+    for tr in tool_results:
+        label = _TOOL_TO_INTENT.get(tr.get("tool_name"))
+        if label:
+            return label
+    lowered = answer.lower()
+    if any(marker in lowered for marker in _REFUSAL_MARKERS):
+        return "unsupported_medical_request"
+    return "other"
 
 
 def classify_intent(question: str, client: OpenAI | None = None) -> ExtractedQuery:

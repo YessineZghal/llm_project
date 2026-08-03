@@ -1,7 +1,8 @@
 """Plain (non-agentic) RAG pipeline: rewrite -> retrieve -> prompt -> generate.
 
 This is the "combination of both" RAG half of the app (see rag/agent.py for the
-tool-calling agent variant), and the thing being evaluated in eval/evaluate_rag.py.
+tool-calling agent variant), and the baseline configurations (A/B) compared against
+the full agent (C) in eval/evaluate_llm_pipelines.py.
 """
 
 from openai import OpenAI

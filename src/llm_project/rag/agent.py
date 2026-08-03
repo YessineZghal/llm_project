@@ -47,10 +47,20 @@ Rules, in order of importance:
    the user rephrases or insists.
 7. The bottleneck score, where used, is a project-specific indicator, not an
    official NHS metric - say so if you mention it.
-8. For definitions, methodology, or explanatory questions, use
-   search_knowledge_base rather than guessing from general knowledge; if it
-   returns nothing relevant, say the knowledge base doesn't cover it.
-9. Cite what you used: name the tool or document you drew each figure from.
+8. For definitions, methodology, or explanatory questions, always call
+   search_knowledge_base or retrieve_metric_definition first, even if you
+   believe you already know the answer from this system prompt or general
+   knowledge - the knowledge base is the authoritative source and must be
+   cited, not assumed. This always applies to, without exception: what a
+   term or metric means; where the data comes from; how figures are
+   calculated or aggregated; whether published figures can be revised; and
+   any other question about methodology or data provenance. If the tool
+   returns nothing relevant, say the knowledge base doesn't cover it - do
+   not fall back to unsourced general knowledge.
+9. For questions about the national or overall picture for a diagnostic
+   test (not one specific provider), use get_national_summary rather than
+   summing or averaging individual provider figures yourself.
+10. Cite what you used: name the tool or document you drew each figure from.
 
 Available diagnostic tests: MRI, CT, NON_OBSTETRIC_ULTRASOUND, COLONOSCOPY.
 """.strip()
@@ -123,6 +133,21 @@ def get_bottleneck_ranking(
         test_code=test_code, period_id=period_id or None, weighting_scenario=weighting_scenario, limit=limit
     )
     return analytics_tools.get_bottleneck_ranking(payload).model_dump()
+
+
+def get_national_summary(test_code: str, period_id: str = "") -> dict:
+    """Get the national/overall picture for one diagnostic test and
+    reporting period: total waiting, total activity, and the percentage
+    waiting six weeks or longer aggregated across every loaded provider.
+    Use this for "what's the national/overall picture" questions - never
+    sum or average individual provider figures yourself to answer this.
+
+    Args:
+        test_code: one of MRI, CT, NON_OBSTETRIC_ULTRASOUND, COLONOSCOPY.
+        period_id: ISO reporting month "YYYY-MM". Leave empty for the latest loaded month.
+    """
+    payload = analytics_tools.NationalSummaryInput(test_code=test_code, period_id=period_id or None)
+    return analytics_tools.get_national_summary(payload).model_dump()
 
 
 def compare_provider_waits(provider_codes: str, test_code: str, period_id: str = "") -> dict:
@@ -255,6 +280,7 @@ def build_agent_runner() -> OpenAIChatCompletionsRunner:
         get_provider_profile,
         rank_provider_waits,
         get_bottleneck_ranking,
+        get_national_summary,
         compare_provider_waits,
         analyze_waiting_trend,
         compare_activity_and_waiting,

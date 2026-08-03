@@ -12,7 +12,7 @@ from llm_project.search.load_docs import load_docs
 def get_text_index() -> minsearch.Index:
     docs = load_docs()
     index = minsearch.Index(
-        text_fields=["title", "abstract", "authors"],
+        text_fields=["title", "abstract", "attribution"],
         keyword_fields=["id", "categories", "source_topic"],
     )
     index.fit(docs)

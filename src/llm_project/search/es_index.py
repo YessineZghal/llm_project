@@ -16,7 +16,7 @@ INDEX_MAPPING = {
             "id": {"type": "keyword"},
             "title": {"type": "text"},
             "abstract": {"type": "text"},
-            "authors": {"type": "text"},
+            "attribution": {"type": "text"},
             "categories": {"type": "keyword"},
             "source_topic": {"type": "keyword"},
             "url": {"type": "keyword"},
@@ -69,7 +69,7 @@ def build_index(es: Elasticsearch, index_name: str = ELASTIC_INDEX_NAME, recreat
 def search_text(es: Elasticsearch, query: str, index_name: str = ELASTIC_INDEX_NAME, num_results: int = 5) -> list[dict]:
     body = {
         "size": num_results,
-        "query": {"multi_match": {"query": query, "fields": ["title^2", "abstract", "authors"]}},
+        "query": {"multi_match": {"query": query, "fields": ["title^2", "abstract", "attribution"]}},
     }
     resp = es.search(index=index_name, body=body)
     return [{**hit["_source"], "_score": hit["_score"]} for hit in resp["hits"]["hits"]]

@@ -6,6 +6,12 @@ __pycache__/
 .claude
 agent/
 
+# Keep only the root README.md tracked; every other markdown file (plan.md,
+# project.md, DATA_SOURCES.md, docs/*.md, data/eval/*.md, etc.) is a working/
+# internal doc, not meant to be committed.
+*.md
+!README.md
+
 # Derived/regenerable data artifacts (rebuilt by ingest/es_index) — the
 # datasets they're built from (data/raw/*.jsonl, data/eval/*.csv) are tracked.
 data/arxiv_ingest.duckdb

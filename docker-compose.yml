@@ -9,6 +9,8 @@ volumes:
     driver: local
   elasticsearch_data:
     driver: local
+  grafana_data:
+    driver: local
 
 services:
   elasticsearch:
@@ -76,6 +78,34 @@ services:
       - "8501:8501"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8501/_stcore/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    depends_on:
+      app_postgres:
+        condition: service_healthy
+    environment:
+      # No insecure default - see the app_postgres service's comment above
+      # for the same reasoning; this dashboard reads real conversation data.
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # Read by grafana/provisioning/datasources/postgres.yml to configure the
+      # read-only Postgres data source without hardcoding credentials there.
+      APP_POSTGRES_DB: ${APP_POSTGRES_DB:-llm_project}
+      APP_POSTGRES_USER: ${APP_POSTGRES_USER:-llm_project}
+      APP_POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:?set APP_POSTGRES_PASSWORD in .env}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      # Loopback-only - see the elasticsearch service's comment above.
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 10
