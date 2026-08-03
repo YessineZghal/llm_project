@@ -5,8 +5,75 @@ volumes:
     driver: local
   kestra_tmp:
     driver: local
+  app_postgres_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
 
 services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.3
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  app_postgres:
+    image: postgres:18
+    volumes:
+      - app_postgres_data:/var/lib/postgresql
+    environment:
+      POSTGRES_DB: ${APP_POSTGRES_DB:-llm_project}
+      POSTGRES_USER: ${APP_POSTGRES_USER:-llm_project}
+      POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:-llm_project}
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    image: llm-project-app:latest
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      app_postgres:
+        condition: service_healthy
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      OPENAI_JUDGE_MODEL: ${OPENAI_JUDGE_MODEL:-gpt-4o-mini}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+      RERANK_MODEL_NAME: ${RERANK_MODEL_NAME:-cross-encoder/ms-marco-MiniLM-L-6-v2}
+      ELASTIC_URL: http://elasticsearch:9200
+      ELASTIC_INDEX_NAME: ${ELASTIC_INDEX_NAME:-arxiv-papers}
+      APP_POSTGRES_HOST: app_postgres
+      APP_POSTGRES_PORT: "5432"
+      APP_POSTGRES_DB: ${APP_POSTGRES_DB:-llm_project}
+      APP_POSTGRES_USER: ${APP_POSTGRES_USER:-llm_project}
+      APP_POSTGRES_PASSWORD: ${APP_POSTGRES_PASSWORD:-llm_project}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "8501:8501"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8501/_stcore/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
   kestra_postgres:
     image: postgres:18
     volumes:

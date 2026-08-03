@@ -1,6 +1,8 @@
 import uuid
 
-from llm_project.db.models import Conversation, Feedback, get_session, init_db
+import pandas as pd
+
+from llm_project.db.models import Conversation, Feedback, get_engine, get_session, init_db
 
 
 def log_conversation(
@@ -50,3 +52,15 @@ def log_feedback(conversation_id: str, rating: int) -> None:
         session.commit()
     finally:
         session.close()
+
+
+def get_conversations_df() -> pd.DataFrame:
+    """All logged conversations, for the monitoring dashboard (app/pages/*)."""
+    init_db()
+    return pd.read_sql(Conversation.__table__.select().order_by(Conversation.created_at), get_engine())
+
+
+def get_feedback_df() -> pd.DataFrame:
+    """All logged feedback votes, for the monitoring dashboard (app/pages/*)."""
+    init_db()
+    return pd.read_sql(Feedback.__table__.select().order_by(Feedback.created_at), get_engine())

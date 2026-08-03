@@ -113,3 +113,11 @@ def search_hybrid(
     ranked_ids = sorted(fused, key=lambda doc_id: fused[doc_id], reverse=True)[:num_results]
 
     return [{**by_id[doc_id], "_rrf_score": fused[doc_id]} for doc_id in ranked_ids]
+
+
+if __name__ == "__main__":
+    import sys
+
+    client = get_client()
+    count = build_index(client, recreate="--recreate" in sys.argv)
+    print(f"Index {ELASTIC_INDEX_NAME!r} ready with {count} documents at {ELASTIC_URL}")

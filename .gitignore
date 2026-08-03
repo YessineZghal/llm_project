@@ -4,3 +4,8 @@ __pycache__/
 .env
 .ipynb_checkpoints/
 .claude
+
+# Derived/regenerable data artifacts (rebuilt by ingest/es_index) — the
+# datasets they're built from (data/raw/*.jsonl, data/eval/*.csv) are tracked.
+data/arxiv_ingest.duckdb
+data/embeddings_cache.npz
